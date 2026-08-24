@@ -1,0 +1,32 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+
+# Coverage
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Go workspace
+go.work
+go.work.sum
+
+# Environment files
+.env
+
+# Local application storage
+/storage/
+
+# Local configuration
+/config/
+
+# Editor/IDE
+.idea/
+.vscode/
