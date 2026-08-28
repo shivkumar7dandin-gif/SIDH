@@ -1,6 +1,10 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,66 +20,62 @@ type StudentHandler struct {
 func NewStudentHandler(
 	service *service.StudentService,
 ) *StudentHandler {
-
 	return &StudentHandler{
 		service: service,
 	}
 }
 
+// =====================================================
 // POST /api/v1/students
+// Supports:
+// 1. Single student
+// 2. Bulk students
+// =====================================================
+
 func (h *StudentHandler) Create(c *gin.Context) {
 
-	var students []model.Student
-
-	// Read array of students
-	if err := c.ShouldBindJSON(&students); err != nil {
+	// Read request body
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "failed to read request body",
 		})
 		return
 	}
 
-	// Check empty request
-	if len(students) == 0 {
+	body = bytes.TrimSpace(body)
+
+	if len(body) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "student list cannot be empty",
+			"error": "request body cannot be empty",
 		})
 		return
 	}
 
-	// Create students one by one
-	createdStudents := make([]*model.Student, 0, len(students))
+	// =====================================================
+	// SINGLE STUDENT
+	// =====================================================
 
-	for _, student := range students {
+	if body[0] == '{' {
 
-		if student.Name == "" {
+		var student model.Student
+
+		if err := json.Unmarshal(body, &student); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "student name is required",
+				"error": err.Error(),
 			})
 			return
 		}
 
-		if student.Age <= 0 {
+		// Validate student
+		if err := validateStudent(student); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "age must be greater than 0",
+				"error": err.Error(),
 			})
 			return
 		}
 
-		if student.RollNumber <= 0 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "roll number must be greater than 0",
-			})
-			return
-		}
-
-		if student.ClassroomID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "classroom_id is required",
-			})
-			return
-		}
-
+		// Create student
 		createdStudent, err := h.service.Create(
 			c.Request.Context(),
 			student,
@@ -88,19 +88,120 @@ func (h *StudentHandler) Create(c *gin.Context) {
 			return
 		}
 
-		createdStudents = append(createdStudents, createdStudent)
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "student created successfully",
+			"student": createdStudent,
+		})
+
+		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message":  "students created successfully",
-		"students": createdStudents,
+	// =====================================================
+	// BULK STUDENTS
+	// =====================================================
+
+	if body[0] == '[' {
+
+		var students []model.Student
+
+		if err := json.Unmarshal(body, &students); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		// Check empty array
+		if len(students) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "student list cannot be empty",
+			})
+			return
+		}
+
+		createdStudents := make([]*model.Student, 0, len(students))
+
+		for _, student := range students {
+
+			// Validate student
+			if err := validateStudent(student); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": err.Error(),
+				})
+				return
+			}
+
+			// Create student
+			createdStudent, err := h.service.Create(
+				c.Request.Context(),
+				student,
+			)
+
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error": err.Error(),
+				})
+				return
+			}
+
+			createdStudents = append(
+				createdStudents,
+				createdStudent,
+			)
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message":  "students created successfully",
+			"students": createdStudents,
+		})
+
+		return
+	}
+
+	// =====================================================
+	// INVALID REQUEST
+	// =====================================================
+
+	c.JSON(http.StatusBadRequest, gin.H{
+		"error": "request body must be a student object or an array of students",
 	})
 }
 
+// =====================================================
+// VALIDATE STUDENT
+// =====================================================
+
+func validateStudent(student model.Student) error {
+
+	if student.Name == "" {
+		return fmt.Errorf("student name is required")
+	}
+
+	if student.Age <= 0 {
+		return fmt.Errorf("age must be greater than 0")
+	}
+
+	if student.RollNumber <= 0 {
+		return fmt.Errorf("roll number must be greater than 0")
+	}
+
+	if student.ClassroomID == "" {
+		return fmt.Errorf("classroom_id is required")
+	}
+
+	return nil
+}
+
+// =====================================================
+// GET ALL STUDENTS
 // GET /api/v1/students
+// =====================================================
+
 func (h *StudentHandler) GetAll(c *gin.Context) {
 
-	students, err := h.service.GetAll(c.Request.Context())
+	students, err := h.service.GetAll(
+		c.Request.Context(),
+	)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -112,10 +213,16 @@ func (h *StudentHandler) GetAll(c *gin.Context) {
 	c.JSON(http.StatusOK, students)
 }
 
+// =====================================================
+// GET STUDENT BY ID
 // GET /api/v1/students/:id
+// =====================================================
+
 func (h *StudentHandler) GetByID(c *gin.Context) {
 
-	id, err := bson.ObjectIDFromHex(c.Param("id"))
+	id, err := bson.ObjectIDFromHex(
+		c.Param("id"),
+	)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -139,10 +246,16 @@ func (h *StudentHandler) GetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, student)
 }
 
+// =====================================================
+// UPDATE STUDENT
 // PUT /api/v1/students/:id
+// =====================================================
+
 func (h *StudentHandler) Update(c *gin.Context) {
 
-	id, err := bson.ObjectIDFromHex(c.Param("id"))
+	id, err := bson.ObjectIDFromHex(
+		c.Param("id"),
+	)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -154,6 +267,14 @@ func (h *StudentHandler) Update(c *gin.Context) {
 	var student model.Student
 
 	if err := c.ShouldBindJSON(&student); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// Validate student
+	if err := validateStudent(student); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
@@ -178,10 +299,16 @@ func (h *StudentHandler) Update(c *gin.Context) {
 	})
 }
 
+// =====================================================
+// DELETE STUDENT
 // DELETE /api/v1/students/:id
+// =====================================================
+
 func (h *StudentHandler) Delete(c *gin.Context) {
 
-	id, err := bson.ObjectIDFromHex(c.Param("id"))
+	id, err := bson.ObjectIDFromHex(
+		c.Param("id"),
+	)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{

@@ -33,39 +33,49 @@ func (s *StudentService) Create(
 	student model.Student,
 ) (*model.Student, error) {
 
-	// Convert classroom ID string to ObjectID
-	classroomID, err := bson.ObjectIDFromHex(student.ClassroomID)
+	// ------------------------------------------------
+	// 1. Check classroom exists
+	// ------------------------------------------------
+
+	classroom, err := s.classroomRepo.GetByName(
+		ctx,
+		student.ClassroomID,
+	)
 
 	if err != nil {
 		return nil, fmt.Errorf("invalid classroom_id")
 	}
 
-	// Find classroom
-	classroom, err := s.classroomRepo.GetByID(
-		ctx,
-		classroomID,
-	)
+	// ------------------------------------------------
+	// 2. Count existing students in classroom
+	// ------------------------------------------------
 
-	if err != nil {
-		return nil, fmt.Errorf("classroom not found")
-	}
-
-	// Count existing students
 	count, err := s.studentRepo.CountByClassroom(
 		ctx,
 		student.ClassroomID,
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(
+			"failed to count classroom students: %w",
+			err,
+		)
 	}
 
-	// Check classroom capacity
+	// ------------------------------------------------
+	// 3. Check classroom capacity
+	// ------------------------------------------------
+
 	if count >= int64(classroom.Capacity) {
-		return nil, fmt.Errorf("classroom seats are full")
+		return nil, fmt.Errorf(
+			"classroom seats are full, not able to enroll in this classroom",
+		)
 	}
 
-	// Create student
+	// ------------------------------------------------
+	// 4. Create student
+	// ------------------------------------------------
+
 	return s.studentRepo.Create(
 		ctx,
 		student,
@@ -86,7 +96,10 @@ func (s *StudentService) GetByID(
 	id bson.ObjectID,
 ) (*model.Student, error) {
 
-	return s.studentRepo.GetByID(ctx, id)
+	return s.studentRepo.GetByID(
+		ctx,
+		id,
+	)
 }
 
 // Update student

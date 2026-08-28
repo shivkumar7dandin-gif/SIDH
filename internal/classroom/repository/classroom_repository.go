@@ -131,3 +131,24 @@ func (r *ClassroomRepository) Delete(
 
 	return nil
 }
+
+func (r *ClassroomRepository) GetByName(
+	ctx context.Context,
+	name string,
+) (*model.Classroom, error) {
+
+	var classroom model.Classroom
+
+	err := r.collection.FindOne(
+		ctx,
+		bson.M{
+			"name": name,
+		},
+	).Decode(&classroom)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &classroom, nil
+}
