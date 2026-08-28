@@ -5,6 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	assessmentHandler "github.com/shivkumar7dandin-gif/students-api/internal/assessment/handler"
+	assessmentRepository "github.com/shivkumar7dandin-gif/students-api/internal/assessment/repository"
+	assessmentService "github.com/shivkumar7dandin-gif/students-api/internal/assessment/service"
+
 	attendanceHandler "github.com/shivkumar7dandin-gif/students-api/internal/attendance/handler"
 	attendanceRepository "github.com/shivkumar7dandin-gif/students-api/internal/attendance/repository"
 	attendanceService "github.com/shivkumar7dandin-gif/students-api/internal/attendance/service"
@@ -23,21 +27,13 @@ import (
 
 func main() {
 
-	// ========================================
-	// LOAD CONFIGURATION
-	// ========================================
-
 	cfg := config.MustLoad()
-
-	// ========================================
-	// CONNECT TO MONGODB
-	// ========================================
 
 	mongoClient, err := database.Connect(
 		cfg.Storage.MongoURI,
 	)
 	if err != nil {
-		log.Fatal("MongoDB connection failed:", err)
+		log.Fatal("MongoDB connection failed: ", err)
 	}
 
 	log.Println("MongoDB connected successfully")
@@ -46,9 +42,9 @@ func main() {
 		cfg.Storage.Database,
 	)
 
-	// ========================================
+	// =========================
 	// CLASSROOM
-	// ========================================
+	// =========================
 
 	classroomRepo := classroomRepository.NewClassroomRepository(db)
 
@@ -60,9 +56,9 @@ func main() {
 		classroomSvc,
 	)
 
-	// ========================================
+	// =========================
 	// STUDENT
-	// ========================================
+	// =========================
 
 	studentRepo := studentRepository.NewStudentRepository(db)
 
@@ -75,9 +71,9 @@ func main() {
 		studentSvc,
 	)
 
-	// ========================================
+	// =========================
 	// ATTENDANCE
-	// ========================================
+	// =========================
 
 	attendanceRepo := attendanceRepository.NewAttendanceRepository(db)
 
@@ -89,15 +85,25 @@ func main() {
 		attendanceSvc,
 	)
 
-	// ========================================
-	// GIN ROUTER
-	// ========================================
+	// =========================
+	// ASSESSMENT
+	// =========================
+
+	assessmentRepo := assessmentRepository.NewAssessmentRepository(db)
+
+	assessmentSvc := assessmentService.NewAssessmentService(
+		assessmentRepo,
+	)
+
+	assessmentH := assessmentHandler.NewAssessmentHandler(
+		assessmentSvc,
+	)
+
+	// =========================
+	// ROUTER
+	// =========================
 
 	router := gin.Default()
-
-	// ========================================
-	// HEALTH CHECK
-	// ========================================
 
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -105,16 +111,9 @@ func main() {
 		})
 	})
 
-	// ========================================
-	// API V1
-	// ========================================
-
 	api := router.Group("/api/v1")
 
-	// ========================================
 	// CLASSROOM ROUTES
-	// ========================================
-
 	classrooms := api.Group("/classrooms")
 	{
 		classrooms.POST("", classroomH.Create)
@@ -124,10 +123,7 @@ func main() {
 		classrooms.DELETE("/:id", classroomH.Delete)
 	}
 
-	// ========================================
 	// STUDENT ROUTES
-	// ========================================
-
 	students := api.Group("/students")
 	{
 		students.POST("", studentH.Create)
@@ -137,27 +133,36 @@ func main() {
 		students.DELETE("/:id", studentH.Delete)
 	}
 
-	// ========================================
 	// ATTENDANCE ROUTES
-	// ========================================
-
 	attendance := api.Group("/attendance")
 	{
 		attendance.POST("", attendanceH.Create)
 		attendance.GET("", attendanceH.GetAll)
-		attendance.GET("/student/:studentId", attendanceH.GetByStudent)
+		attendance.GET(
+			"/student/:studentId",
+			attendanceH.GetByStudent,
+		)
 	}
 
-	// ========================================
-	// START SERVER
-	// ========================================
+	// ASSESSMENT ROUTES
+	assessments := api.Group("/assessments")
+	{
+		assessments.POST("", assessmentH.Create)
+		assessments.GET("", assessmentH.GetAll)
+		assessments.GET(
+			"/student/:studentId",
+			assessmentH.GetByStudent,
+		)
+	}
 
 	log.Println(
 		"Students API running on",
 		cfg.HTTPServer.Address,
 	)
 
-	if err := router.Run(cfg.HTTPServer.Address); err != nil {
+	if err := router.Run(
+		cfg.HTTPServer.Address,
+	); err != nil {
 		log.Fatal(err)
 	}
 }
