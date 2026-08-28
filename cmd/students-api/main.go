@@ -5,6 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	attendanceHandler "github.com/shivkumar7dandin-gif/students-api/internal/attendance/handler"
+	attendanceRepository "github.com/shivkumar7dandin-gif/students-api/internal/attendance/repository"
+	attendanceService "github.com/shivkumar7dandin-gif/students-api/internal/attendance/service"
+
 	classroomHandler "github.com/shivkumar7dandin-gif/students-api/internal/classroom/handler"
 	classroomRepository "github.com/shivkumar7dandin-gif/students-api/internal/classroom/repository"
 	classroomService "github.com/shivkumar7dandin-gif/students-api/internal/classroom/service"
@@ -32,14 +36,12 @@ func main() {
 	mongoClient, err := database.Connect(
 		cfg.Storage.MongoURI,
 	)
-
 	if err != nil {
 		log.Fatal("MongoDB connection failed:", err)
 	}
 
 	log.Println("MongoDB connected successfully")
 
-	// Select database
 	db := mongoClient.Database(
 		cfg.Storage.Database,
 	)
@@ -48,15 +50,12 @@ func main() {
 	// CLASSROOM
 	// ========================================
 
-	// Repository
 	classroomRepo := classroomRepository.NewClassroomRepository(db)
 
-	// Service
 	classroomSvc := classroomService.NewClassroomService(
 		classroomRepo,
 	)
 
-	// Handler
 	classroomH := classroomHandler.NewClassroomHandler(
 		classroomSvc,
 	)
@@ -65,24 +64,29 @@ func main() {
 	// STUDENT
 	// ========================================
 
-	// Repository
 	studentRepo := studentRepository.NewStudentRepository(db)
 
-	// Service
-	// Student service needs:
-	// 1. Student repository
-	// 2. Classroom repository
-	//
-	// Classroom repository is required to check
-	// classroom capacity before creating a student.
 	studentSvc := studentService.NewStudentService(
 		studentRepo,
 		classroomRepo,
 	)
 
-	// Handler
 	studentH := studentHandler.NewStudentHandler(
 		studentSvc,
+	)
+
+	// ========================================
+	// ATTENDANCE
+	// ========================================
+
+	attendanceRepo := attendanceRepository.NewAttendanceRepository(db)
+
+	attendanceSvc := attendanceService.NewAttendanceService(
+		attendanceRepo,
+	)
+
+	attendanceH := attendanceHandler.NewAttendanceHandler(
+		attendanceSvc,
 	)
 
 	// ========================================
@@ -131,6 +135,17 @@ func main() {
 		students.GET("/:id", studentH.GetByID)
 		students.PUT("/:id", studentH.Update)
 		students.DELETE("/:id", studentH.Delete)
+	}
+
+	// ========================================
+	// ATTENDANCE ROUTES
+	// ========================================
+
+	attendance := api.Group("/attendance")
+	{
+		attendance.POST("", attendanceH.Create)
+		attendance.GET("", attendanceH.GetAll)
+		attendance.GET("/student/:studentId", attendanceH.GetByStudent)
 	}
 
 	// ========================================
