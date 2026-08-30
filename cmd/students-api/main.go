@@ -5,6 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	collegeHandler "github.com/shivkumar7dandin-gif/students-api/internal/college/handler"
+	collegeRepository "github.com/shivkumar7dandin-gif/students-api/internal/college/repository"
+	collegeService "github.com/shivkumar7dandin-gif/students-api/internal/college/service"
+
 	assessmentHandler "github.com/shivkumar7dandin-gif/students-api/internal/assessment/handler"
 	assessmentRepository "github.com/shivkumar7dandin-gif/students-api/internal/assessment/repository"
 	assessmentService "github.com/shivkumar7dandin-gif/students-api/internal/assessment/service"
@@ -40,6 +44,16 @@ func main() {
 
 	db := mongoClient.Database(
 		cfg.Storage.Database,
+	)
+
+	collegeRepo := collegeRepository.NewCollegeRepository(db)
+
+	collegeSvc := collegeService.NewCollegeService(
+		collegeRepo,
+	)
+
+	collegeH := collegeHandler.NewCollegeHandler(
+		collegeSvc,
 	)
 
 	// =========================
@@ -112,6 +126,15 @@ func main() {
 	})
 
 	api := router.Group("/api/v1")
+
+	//college
+
+	colleges := api.Group("/colleges")
+	{
+		colleges.POST("", collegeH.Create)
+		colleges.GET("", collegeH.GetAll)
+		colleges.GET("/:id", collegeH.GetByID)
+	}
 
 	// CLASSROOM ROUTES
 	classrooms := api.Group("/classrooms")
