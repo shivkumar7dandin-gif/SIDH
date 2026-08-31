@@ -47,3 +47,21 @@ func (r *UserRepository) GetByUsername(
 
 	return &user, nil
 }
+
+func (r *UserRepository) UsernameExists(
+	ctx context.Context,
+	username string,
+) (bool, error) {
+
+	count, err := r.collection.CountDocuments(
+		ctx,
+		bson.M{
+			"username": username,
+		},
+	)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
