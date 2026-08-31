@@ -8,6 +8,7 @@ import (
 	authHandler "github.com/shivkumar7dandin-gif/students-api/internal/auth/handler"
 	authMiddleware "github.com/shivkumar7dandin-gif/students-api/internal/auth/middleware"
 	authService "github.com/shivkumar7dandin-gif/students-api/internal/auth/service"
+	userRepository "github.com/shivkumar7dandin-gif/students-api/internal/user/repository"
 
 	assessmentHandler "github.com/shivkumar7dandin-gif/students-api/internal/assessment/handler"
 	assessmentRepository "github.com/shivkumar7dandin-gif/students-api/internal/assessment/repository"
@@ -78,8 +79,10 @@ func main() {
 
 	jwtSecret := "my-super-secret-jwt-key"
 
+	userRepo := userRepository.NewUserRepository(db)
+
 	authSvc := authService.NewAuthService(
-		collegeRepo,
+		userRepo,
 		jwtSecret,
 	)
 
@@ -150,12 +153,19 @@ func main() {
 
 	router := gin.Default()
 
-	// Health check
+	// =========================
+	// HEALTH CHECK
+	// =========================
+
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status": "OK",
 		})
 	})
+
+	// =========================
+	// API VERSION
+	// =========================
 
 	api := router.Group("/api/v1")
 
@@ -168,91 +178,147 @@ func main() {
 		auth.POST("/login", authH.Login)
 	}
 
+	// =========================
+	// JWT PROTECTED ROUTES
+	// =========================
+
 	protected := api.Group("")
 	protected.Use(
 		authMiddleware.AuthMiddleware(jwtSecret),
 	)
 
 	// =========================
+	// ROLE GROUPS
+	// =========================
+
+	// Only college admin
+	adminOnly := protected.Group("")
+	adminOnly.Use(
+		authMiddleware.RequireRole(
+			"college_admin",
+		),
+	)
+
+	// College admin + teacher
+	teacherAndAdmin := protected.Group("")
+	teacherAndAdmin.Use(
+		authMiddleware.RequireRole(
+			"college_admin",
+			"teacher",
+		),
+	)
+
+	// College admin + teacher + student
+	allUsers := protected.Group("")
+	allUsers.Use(
+		authMiddleware.RequireRole(
+			"college_admin",
+			"teacher",
+			"student",
+		),
+	)
+
+	// =========================
 	// COLLEGE ROUTES
 	// =========================
 
-	colleges := api.Group("/colleges")
+	// Public registration for now.
+	// Later this can be restricted to super-admin.
+	collegesPublic := api.Group("/colleges")
 	{
-		colleges.POST("", collegeH.Create)
+		collegesPublic.POST("", collegeH.Create)
 	}
 
-	protectedColleges := protected.Group("/colleges")
+	// All authenticated users can read college information.
+	collegesRead := allUsers.Group("/colleges")
 	{
-		protectedColleges.GET("", collegeH.GetAll)
-		protectedColleges.GET("/:id", collegeH.GetByID)
+		collegesRead.GET("", collegeH.GetAll)
+		collegesRead.GET("/:id", collegeH.GetByID)
 	}
 
 	// =========================
 	// CLASSROOM ROUTES
 	// =========================
 
-	//classrooms := api.Group("/classrooms")
-	classrooms := protected.Group("/classrooms")
-
+	// Admin, teacher and student can read classrooms.
+	classroomsRead := allUsers.Group("/classrooms")
 	{
-		classrooms.POST("", classroomH.Create)
-		classrooms.GET("", classroomH.GetAll)
-		classrooms.GET("/:id", classroomH.GetByID)
-		classrooms.PUT("/:id", classroomH.Update)
-		classrooms.DELETE("/:id", classroomH.Delete)
+		classroomsRead.GET("", classroomH.GetAll)
+		classroomsRead.GET("/:id", classroomH.GetByID)
+	}
+
+	// Only college admin can create/update/delete classrooms.
+	classroomsAdmin := adminOnly.Group("/classrooms")
+	{
+		classroomsAdmin.POST("", classroomH.Create)
+		classroomsAdmin.PUT("/:id", classroomH.Update)
+		classroomsAdmin.DELETE("/:id", classroomH.Delete)
 	}
 
 	// =========================
 	// STUDENT ROUTES
 	// =========================
 
-	//students := api.Group("/students")
-	students := protected.Group("/students")
+	// Admin, teacher and student can read student information.
+	studentsRead := allUsers.Group("/students")
 	{
-		students.POST("", studentH.Create)
-		students.GET("", studentH.GetAll)
-		students.GET("/:id", studentH.GetByID)
-		students.PUT("/:id", studentH.Update)
-		students.DELETE("/:id", studentH.Delete)
+		studentsRead.GET("", studentH.GetAll)
+		studentsRead.GET("/:id", studentH.GetByID)
+	}
+
+	// Only college admin can create/update/delete students.
+	studentsAdmin := adminOnly.Group("/students")
+	{
+		studentsAdmin.POST("", studentH.Create)
+		studentsAdmin.PUT("/:id", studentH.Update)
+		studentsAdmin.DELETE("/:id", studentH.Delete)
 	}
 
 	// =========================
 	// ATTENDANCE ROUTES
 	// =========================
 
-	//attendance := api.Group("/attendance")
-	attendance := protected.Group("/attendance")
+	// Admin, teacher and student can read attendance.
+	attendanceRead := allUsers.Group("/attendance")
 	{
-		attendance.POST("", attendanceH.Create)
-		attendance.GET("", attendanceH.GetAll)
+		attendanceRead.GET("", attendanceH.GetAll)
 
-		attendance.GET(
+		attendanceRead.GET(
 			"/student/:studentId",
 			attendanceH.GetByStudent,
 		)
 
-		attendance.GET(
+		attendanceRead.GET(
 			"/student/:studentId/summary",
 			attendanceH.GetSummary,
 		)
+	}
 
+	// Admin and teacher can mark attendance.
+	attendanceWrite := teacherAndAdmin.Group("/attendance")
+	{
+		attendanceWrite.POST("", attendanceH.Create)
 	}
 
 	// =========================
 	// ASSESSMENT ROUTES
 	// =========================
 
-	//assessments := api.Group("/assessments")
-	assessments := protected.Group("/assessments")
+	// Admin, teacher and student can read assessments.
+	assessmentRead := allUsers.Group("/assessments")
 	{
-		assessments.POST("", assessmentH.Create)
-		assessments.GET("", assessmentH.GetAll)
+		assessmentRead.GET("", assessmentH.GetAll)
 
-		assessments.GET(
+		assessmentRead.GET(
 			"/student/:studentId",
 			assessmentH.GetByStudent,
 		)
+	}
+
+	// Admin and teacher can create assessment details.
+	assessmentWrite := teacherAndAdmin.Group("/assessments")
+	{
+		assessmentWrite.POST("", assessmentH.Create)
 	}
 
 	// =========================

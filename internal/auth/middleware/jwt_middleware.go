@@ -74,9 +74,18 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
+		// =========================
+		// STORE JWT DATA IN CONTEXT
+		// =========================
+
 		c.Set(
-			"college_id",
-			claims.CollegeID,
+			"user_id",
+			claims.UserID,
+		)
+
+		c.Set(
+			"reference_id",
+			claims.ReferenceID,
 		)
 
 		c.Set(

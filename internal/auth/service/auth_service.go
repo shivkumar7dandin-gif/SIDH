@@ -6,31 +6,32 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/shivkumar7dandin-gif/students-api/internal/college/repository"
+	userRepository "github.com/shivkumar7dandin-gif/students-api/internal/user/repository"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService struct {
-	collegeRepo *repository.CollegeRepository
-	jwtSecret   []byte
+	userRepo  *userRepository.UserRepository
+	jwtSecret []byte
 }
 
 type Claims struct {
-	CollegeID string `json:"college_id"`
-	Username  string `json:"username"`
-	Role      string `json:"role"`
+	UserID      string `json:"user_id"`
+	ReferenceID string `json:"reference_id"`
+	Username    string `json:"username"`
+	Role        string `json:"role"`
 
 	jwt.RegisteredClaims
 }
 
 func NewAuthService(
-	collegeRepo *repository.CollegeRepository,
+	userRepo *userRepository.UserRepository,
 	jwtSecret string,
 ) *AuthService {
 
 	return &AuthService{
-		collegeRepo: collegeRepo,
-		jwtSecret:   []byte(jwtSecret),
+		userRepo:  userRepo,
+		jwtSecret: []byte(jwtSecret),
 	}
 }
 
@@ -40,7 +41,8 @@ func (s *AuthService) Login(
 	password string,
 ) (string, string, error) {
 
-	college, err := s.collegeRepo.GetByUsername(
+	// Find user from common users collection
+	user, err := s.userRepo.GetByUsername(
 		ctx,
 		username,
 	)
@@ -50,8 +52,9 @@ func (s *AuthService) Login(
 		)
 	}
 
+	// Compare entered password with hashed password
 	err = bcrypt.CompareHashAndPassword(
-		[]byte(college.PasswordHash),
+		[]byte(user.PasswordHash),
 		[]byte(password),
 	)
 	if err != nil {
@@ -60,13 +63,15 @@ func (s *AuthService) Login(
 		)
 	}
 
+	// Create JWT claims
 	claims := Claims{
-		CollegeID: college.ID.Hex(),
-		Username:  college.Username,
-		Role:      college.Role,
+		UserID:      user.ID.Hex(),
+		ReferenceID: user.ReferenceID.Hex(),
+		Username:    user.Username,
+		Role:        user.Role,
 
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject: college.ID.Hex(),
+			Subject: user.ID.Hex(),
 
 			IssuedAt: jwt.NewNumericDate(
 				time.Now(),
@@ -78,11 +83,13 @@ func (s *AuthService) Login(
 		},
 	}
 
+	// Create JWT token
 	token := jwt.NewWithClaims(
 		jwt.SigningMethodHS256,
 		claims,
 	)
 
+	// Sign JWT
 	tokenString, err := token.SignedString(
 		s.jwtSecret,
 	)
@@ -90,5 +97,6 @@ func (s *AuthService) Login(
 		return "", "", err
 	}
 
-	return tokenString, college.Role, nil
+	// Return token and user role
+	return tokenString, user.Role, nil
 }
