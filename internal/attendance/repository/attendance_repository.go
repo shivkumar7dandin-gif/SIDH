@@ -47,13 +47,13 @@ func (r *AttendanceRepository) GetByStudent(
 	}
 	defer cursor.Close(ctx)
 
-	var attendance []model.Attendance
+	var attendanceList []model.Attendance
 
-	if err := cursor.All(ctx, &attendance); err != nil {
+	if err := cursor.All(ctx, &attendanceList); err != nil {
 		return nil, err
 	}
 
-	return attendance, nil
+	return attendanceList, nil
 }
 
 func (r *AttendanceRepository) GetAll(
@@ -66,13 +66,13 @@ func (r *AttendanceRepository) GetAll(
 	}
 	defer cursor.Close(ctx)
 
-	var attendance []model.Attendance
+	var attendanceList []model.Attendance
 
-	if err := cursor.All(ctx, &attendance); err != nil {
+	if err := cursor.All(ctx, &attendanceList); err != nil {
 		return nil, err
 	}
 
-	return attendance, nil
+	return attendanceList, nil
 }
 
 func (r *AttendanceRepository) GetByStudentAndDate(

@@ -231,6 +231,12 @@ func main() {
 			"/student/:studentId",
 			attendanceH.GetByStudent,
 		)
+
+		attendance.GET(
+			"/student/:studentId/summary",
+			attendanceH.GetSummary,
+		)
+
 	}
 
 	// =========================

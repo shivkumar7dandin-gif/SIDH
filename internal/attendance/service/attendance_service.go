@@ -133,3 +133,48 @@ func (s *AttendanceService) GetAll(
 
 	return s.repo.GetAll(ctx)
 }
+
+func (s *AttendanceService) GetSummary(
+	ctx context.Context,
+	studentID bson.ObjectID,
+) (*model.AttendanceSummary, error) {
+
+	attendanceList, err := s.repo.GetByStudent(ctx, studentID)
+	if err != nil {
+		return nil, err
+	}
+
+	totalDays := len(attendanceList)
+
+	present := 0
+	absent := 0
+
+	for _, attendance := range attendanceList {
+
+		switch strings.ToLower(attendance.Attendance) {
+
+		case "present":
+			present++
+
+		case "absent":
+			absent++
+		}
+	}
+
+	percentage := 0.0
+
+	if totalDays > 0 {
+		percentage =
+			(float64(present) / float64(totalDays)) * 100
+	}
+
+	summary := &model.AttendanceSummary{
+		StudentID:            studentID,
+		TotalDays:            totalDays,
+		Present:              present,
+		Absent:               absent,
+		AttendancePercentage: percentage,
+	}
+
+	return summary, nil
+}

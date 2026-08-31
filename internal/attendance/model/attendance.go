@@ -9,3 +9,11 @@ type Attendance struct {
 	Date        string        `json:"date" bson:"date"`
 	Attendance  string        `json:"attendance" bson:"attendance"`
 }
+
+type AttendanceSummary struct {
+	StudentID            bson.ObjectID `json:"student_id"`
+	TotalDays            int           `json:"total_days"`
+	Present              int           `json:"present"`
+	Absent               int           `json:"absent"`
+	AttendancePercentage float64       `json:"attendance_percentage"`
+}

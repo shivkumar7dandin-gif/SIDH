@@ -105,3 +105,40 @@ func (h *AttendanceHandler) GetAll(c *gin.Context) {
 
 	c.JSON(http.StatusOK, attendance)
 }
+
+func (h *AttendanceHandler) GetSummary(c *gin.Context) {
+
+	studentID, err := bson.ObjectIDFromHex(
+		c.Param("studentId"),
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid student id",
+			},
+		)
+		return
+	}
+
+	summary, err := h.service.GetSummary(
+		c.Request.Context(),
+		studentID,
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+		return
+	}
+
+	c.JSON(
+		http.StatusOK,
+		summary,
+	)
+}
