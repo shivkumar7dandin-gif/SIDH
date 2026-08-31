@@ -12,4 +12,8 @@ type College struct {
 	Pincode     string        `json:"pincode" bson:"pincode"`
 	PhoneNumber string        `json:"phone_number" bson:"phone_number"`
 	Email       string        `json:"email" bson:"email"`
+
+	Username     string `json:"username" bson:"username"`
+	PasswordHash string `json:"-" bson:"password_hash"`
+	Role         string `json:"role" bson:"role"`
 }

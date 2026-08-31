@@ -70,3 +70,22 @@ func (r *CollegeRepository) GetByID(
 
 	return &college, nil
 }
+
+func (r *CollegeRepository) GetByUsername(
+	ctx context.Context,
+	username string,
+) (*model.College, error) {
+
+	var college model.College
+
+	err := r.collection.FindOne(
+		ctx,
+		bson.M{"username": username},
+	).Decode(&college)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &college, nil
+}

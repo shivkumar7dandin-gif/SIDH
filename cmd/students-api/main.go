@@ -5,9 +5,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	collegeHandler "github.com/shivkumar7dandin-gif/students-api/internal/college/handler"
-	collegeRepository "github.com/shivkumar7dandin-gif/students-api/internal/college/repository"
-	collegeService "github.com/shivkumar7dandin-gif/students-api/internal/college/service"
+	authHandler "github.com/shivkumar7dandin-gif/students-api/internal/auth/handler"
+	authMiddleware "github.com/shivkumar7dandin-gif/students-api/internal/auth/middleware"
+	authService "github.com/shivkumar7dandin-gif/students-api/internal/auth/service"
 
 	assessmentHandler "github.com/shivkumar7dandin-gif/students-api/internal/assessment/handler"
 	assessmentRepository "github.com/shivkumar7dandin-gif/students-api/internal/assessment/repository"
@@ -21,6 +21,10 @@ import (
 	classroomRepository "github.com/shivkumar7dandin-gif/students-api/internal/classroom/repository"
 	classroomService "github.com/shivkumar7dandin-gif/students-api/internal/classroom/service"
 
+	collegeHandler "github.com/shivkumar7dandin-gif/students-api/internal/college/handler"
+	collegeRepository "github.com/shivkumar7dandin-gif/students-api/internal/college/repository"
+	collegeService "github.com/shivkumar7dandin-gif/students-api/internal/college/service"
+
 	"github.com/shivkumar7dandin-gif/students-api/internal/config"
 	"github.com/shivkumar7dandin-gif/students-api/internal/database"
 
@@ -31,7 +35,15 @@ import (
 
 func main() {
 
+	// =========================
+	// CONFIG
+	// =========================
+
 	cfg := config.MustLoad()
+
+	// =========================
+	// DATABASE
+	// =========================
 
 	mongoClient, err := database.Connect(
 		cfg.Storage.MongoURI,
@@ -46,6 +58,10 @@ func main() {
 		cfg.Storage.Database,
 	)
 
+	// =========================
+	// COLLEGE
+	// =========================
+
 	collegeRepo := collegeRepository.NewCollegeRepository(db)
 
 	collegeSvc := collegeService.NewCollegeService(
@@ -54,6 +70,21 @@ func main() {
 
 	collegeH := collegeHandler.NewCollegeHandler(
 		collegeSvc,
+	)
+
+	// =========================
+	// AUTH
+	// =========================
+
+	jwtSecret := "my-super-secret-jwt-key"
+
+	authSvc := authService.NewAuthService(
+		collegeRepo,
+		jwtSecret,
+	)
+
+	authH := authHandler.NewAuthHandler(
+		authSvc,
 	)
 
 	// =========================
@@ -119,6 +150,7 @@ func main() {
 
 	router := gin.Default()
 
+	// Health check
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status": "OK",
@@ -127,17 +159,42 @@ func main() {
 
 	api := router.Group("/api/v1")
 
-	//college
+	// =========================
+	// AUTH ROUTES
+	// =========================
+
+	auth := api.Group("/auth")
+	{
+		auth.POST("/login", authH.Login)
+	}
+
+	protected := api.Group("")
+	protected.Use(
+		authMiddleware.AuthMiddleware(jwtSecret),
+	)
+
+	// =========================
+	// COLLEGE ROUTES
+	// =========================
 
 	colleges := api.Group("/colleges")
 	{
 		colleges.POST("", collegeH.Create)
-		colleges.GET("", collegeH.GetAll)
-		colleges.GET("/:id", collegeH.GetByID)
 	}
 
+	protectedColleges := protected.Group("/colleges")
+	{
+		protectedColleges.GET("", collegeH.GetAll)
+		protectedColleges.GET("/:id", collegeH.GetByID)
+	}
+
+	// =========================
 	// CLASSROOM ROUTES
-	classrooms := api.Group("/classrooms")
+	// =========================
+
+	//classrooms := api.Group("/classrooms")
+	classrooms := protected.Group("/classrooms")
+
 	{
 		classrooms.POST("", classroomH.Create)
 		classrooms.GET("", classroomH.GetAll)
@@ -146,8 +203,12 @@ func main() {
 		classrooms.DELETE("/:id", classroomH.Delete)
 	}
 
+	// =========================
 	// STUDENT ROUTES
-	students := api.Group("/students")
+	// =========================
+
+	//students := api.Group("/students")
+	students := protected.Group("/students")
 	{
 		students.POST("", studentH.Create)
 		students.GET("", studentH.GetAll)
@@ -156,27 +217,41 @@ func main() {
 		students.DELETE("/:id", studentH.Delete)
 	}
 
+	// =========================
 	// ATTENDANCE ROUTES
-	attendance := api.Group("/attendance")
+	// =========================
+
+	//attendance := api.Group("/attendance")
+	attendance := protected.Group("/attendance")
 	{
 		attendance.POST("", attendanceH.Create)
 		attendance.GET("", attendanceH.GetAll)
+
 		attendance.GET(
 			"/student/:studentId",
 			attendanceH.GetByStudent,
 		)
 	}
 
+	// =========================
 	// ASSESSMENT ROUTES
-	assessments := api.Group("/assessments")
+	// =========================
+
+	//assessments := api.Group("/assessments")
+	assessments := protected.Group("/assessments")
 	{
 		assessments.POST("", assessmentH.Create)
 		assessments.GET("", assessmentH.GetAll)
+
 		assessments.GET(
 			"/student/:studentId",
 			assessmentH.GetByStudent,
 		)
 	}
+
+	// =========================
+	// START SERVER
+	// =========================
 
 	log.Println(
 		"Students API running on",

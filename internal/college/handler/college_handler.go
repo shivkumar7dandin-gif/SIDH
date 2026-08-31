@@ -23,9 +23,9 @@ func NewCollegeHandler(
 
 func (h *CollegeHandler) Create(c *gin.Context) {
 
-	var college model.College
+	var req model.CreateCollegeRequest
 
-	if err := c.ShouldBindJSON(&college); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(
 			http.StatusBadRequest,
 			gin.H{"error": err.Error()},
@@ -35,7 +35,7 @@ func (h *CollegeHandler) Create(c *gin.Context) {
 
 	createdCollege, err := h.service.Create(
 		c.Request.Context(),
-		college,
+		req,
 	)
 
 	if err != nil {
