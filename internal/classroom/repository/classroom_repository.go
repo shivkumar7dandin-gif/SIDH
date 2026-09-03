@@ -152,3 +152,27 @@ func (r *ClassroomRepository) GetByName(
 
 	return &classroom, nil
 }
+
+func (r *ClassroomRepository) GetByCollegeID(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+) ([]model.Classroom, error) {
+
+	filter := bson.M{
+		"college_id": collegeID,
+	}
+
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var classrooms []model.Classroom
+
+	if err := cursor.All(ctx, &classrooms); err != nil {
+		return nil, err
+	}
+
+	return classrooms, nil
+}

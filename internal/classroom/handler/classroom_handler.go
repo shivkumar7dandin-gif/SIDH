@@ -22,53 +22,105 @@ func NewClassroomHandler(
 	}
 }
 
+// func (h *ClassroomHandler) Create(c *gin.Context) {
+
+// 	var classroom model.Classroom
+
+// 	// Bind JSON request
+// 	if err := c.ShouldBindJSON(&classroom); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{
+// 			"error": err.Error(),
+// 		})
+// 		return
+// 	}
+
+// 	// Validate classroom name
+// 	if classroom.Name == "" {
+// 		c.JSON(http.StatusBadRequest, gin.H{
+// 			"error": "classroom name is required",
+// 		})
+// 		return
+// 	}
+
+// 	// Validate capacity
+// 	if classroom.Capacity <= 0 {
+// 		c.JSON(http.StatusBadRequest, gin.H{
+// 			"error": "capacity must be greater than 0",
+// 		})
+// 		return
+// 	}
+
+// 	// Create classroom
+// 	createdClassroom, err := h.service.Create(
+// 		c.Request.Context(),
+// 		classroom,
+// 	)
+
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{
+// 			"error": err.Error(),
+// 		})
+// 		return
+// 	}
+
+// 	// Return created classroom
+// 	c.JSON(http.StatusCreated, gin.H{
+// 		"message":   "classroom created successfully",
+// 		"classroom": createdClassroom,
+// 	})
+// }
+
 func (h *ClassroomHandler) Create(c *gin.Context) {
 
-	var classroom model.Classroom
+	var req model.CreateClassroomRequest
 
-	// Bind JSON request
-	if err := c.ShouldBindJSON(&classroom); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
 		return
 	}
 
-	// Validate classroom name
-	if classroom.Name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "classroom name is required",
+	referenceIDValue, exists := c.Get("reference_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "college reference id not found",
 		})
 		return
 	}
 
-	// Validate capacity
-	if classroom.Capacity <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "capacity must be greater than 0",
+	collegeIDString, ok := referenceIDValue.(string)
+	if !ok || collegeIDString == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "invalid college reference id",
 		})
 		return
 	}
 
-	// Create classroom
-	createdClassroom, err := h.service.Create(
+	collegeID, err := bson.ObjectIDFromHex(collegeIDString)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid college id",
+		})
+		return
+	}
+
+	classroom, err := h.service.Create(
 		c.Request.Context(),
-		classroom,
+		req,
+		collegeID,
 	)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
 		return
 	}
 
-	// Return created classroom
-	c.JSON(http.StatusCreated, gin.H{
-		"message":   "classroom created successfully",
-		"classroom": createdClassroom,
-	})
+	c.JSON(http.StatusCreated, classroom)
 }
+
 func (h *ClassroomHandler) GetAll(c *gin.Context) {
 
 	classrooms, err := h.service.GetAll(c.Request.Context())

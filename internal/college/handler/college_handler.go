@@ -107,3 +107,46 @@ func (h *CollegeHandler) GetByID(c *gin.Context) {
 		college,
 	)
 }
+func (h *CollegeHandler) GetDashboard(c *gin.Context) {
+
+	referenceIDValue, exists := c.Get("reference_id")
+
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "reference_id not found",
+		})
+		return
+	}
+
+	referenceID, ok := referenceIDValue.(string)
+
+	if !ok || referenceID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "invalid reference_id",
+		})
+		return
+	}
+
+	collegeID, err := bson.ObjectIDFromHex(referenceID)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid college id",
+		})
+		return
+	}
+
+	dashboard, err := h.service.GetDashboard(
+		c.Request.Context(),
+		collegeID,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, dashboard)
+}

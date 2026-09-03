@@ -5,29 +5,43 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shivkumar7dandin-gif/students-api/internal/college/model"
-	"github.com/shivkumar7dandin-gif/students-api/internal/college/repository"
-	"go.mongodb.org/mongo-driver/v2/bson"
+	collegeModel "github.com/shivkumar7dandin-gif/students-api/internal/college/model"
+	collegeRepository "github.com/shivkumar7dandin-gif/students-api/internal/college/repository"
 
+	classroomRepository "github.com/shivkumar7dandin-gif/students-api/internal/classroom/repository"
+	studentRepository "github.com/shivkumar7dandin-gif/students-api/internal/student/repository"
+	teacherRepository "github.com/shivkumar7dandin-gif/students-api/internal/teacher/repository"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type CollegeService struct {
-	repo *repository.CollegeRepository
+	collegeRepo   *collegeRepository.CollegeRepository
+	teacherRepo   *teacherRepository.TeacherRepository
+	classroomRepo *classroomRepository.ClassroomRepository
+	studentRepo   *studentRepository.StudentRepository
 }
 
 func NewCollegeService(
-	repo *repository.CollegeRepository,
+	collegeRepo *collegeRepository.CollegeRepository,
+	teacherRepo *teacherRepository.TeacherRepository,
+	classroomRepo *classroomRepository.ClassroomRepository,
+	studentRepo *studentRepository.StudentRepository,
 ) *CollegeService {
+
 	return &CollegeService{
-		repo: repo,
+		collegeRepo:   collegeRepo,
+		teacherRepo:   teacherRepo,
+		classroomRepo: classroomRepo,
+		studentRepo:   studentRepo,
 	}
 }
 
 func (s *CollegeService) Create(
 	ctx context.Context,
-	req model.CreateCollegeRequest,
-) (*model.College, error) {
+	req collegeModel.CreateCollegeRequest,
+) (*collegeModel.College, error) {
 
 	if strings.TrimSpace(req.Name) == "" {
 		return nil, fmt.Errorf("college name is required")
@@ -55,6 +69,7 @@ func (s *CollegeService) Create(
 		[]byte(req.Password),
 		bcrypt.DefaultCost,
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to hash password: %w",
@@ -62,7 +77,7 @@ func (s *CollegeService) Create(
 		)
 	}
 
-	college := model.College{
+	college := collegeModel.College{
 		Name:         req.Name,
 		Code:         req.Code,
 		Address:      req.Address,
@@ -76,18 +91,81 @@ func (s *CollegeService) Create(
 		Role:         "college_admin",
 	}
 
-	return s.repo.Create(ctx, college)
+	return s.collegeRepo.Create(ctx, college)
 }
 
 func (s *CollegeService) GetAll(
 	ctx context.Context,
-) ([]model.College, error) {
-	return s.repo.GetAll(ctx)
+) ([]collegeModel.College, error) {
+
+	return s.collegeRepo.GetAll(ctx)
 }
 
 func (s *CollegeService) GetByID(
 	ctx context.Context,
 	id bson.ObjectID,
-) (*model.College, error) {
-	return s.repo.GetByID(ctx, id)
+) (*collegeModel.College, error) {
+
+	return s.collegeRepo.GetByID(ctx, id)
+}
+
+func (s *CollegeService) GetDashboard(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+) (*collegeModel.CollegeDashboard, error) {
+
+	// Get college
+	college, err := s.collegeRepo.GetByID(ctx, collegeID)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to get college: %w",
+			err,
+		)
+	}
+
+	// Get teachers
+	teachers, err := s.teacherRepo.GetByCollegeID(
+		ctx,
+		collegeID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to get teachers: %w",
+			err,
+		)
+	}
+
+	// Get classrooms
+	classrooms, err := s.classroomRepo.GetByCollegeID(
+		ctx,
+		collegeID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to get classrooms: %w",
+			err,
+		)
+	}
+
+	// Get students
+	students, err := s.studentRepo.GetByCollegeID(
+		ctx,
+		collegeID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to get students: %w",
+			err,
+		)
+	}
+
+	return &collegeModel.CollegeDashboard{
+		College:         college,
+		Teachers:        teachers,
+		Classrooms:      classrooms,
+		Students:        students,
+		TotalTeachers:   len(teachers),
+		TotalClassrooms: len(classrooms),
+		TotalStudents:   len(students),
+	}, nil
 }

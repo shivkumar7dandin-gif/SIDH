@@ -76,14 +76,20 @@ func main() {
 
 	collegeRepo := collegeRepository.NewCollegeRepository(db)
 
+	teacherRepo := teacherRepository.NewTeacherRepository(db)
+
+	classroomRepo := classroomRepository.NewClassroomRepository(db)
+
+	studentRepo := studentRepository.NewStudentRepository(db)
+
 	collegeSvc := collegeService.NewCollegeService(
 		collegeRepo,
+		teacherRepo,
+		classroomRepo,
+		studentRepo,
 	)
 
-	collegeH := collegeHandler.NewCollegeHandler(
-		collegeSvc,
-	)
-
+	collegeH := collegeHandler.NewCollegeHandler(collegeSvc)
 	// =========================
 	// AUTH
 	// =========================
@@ -103,7 +109,7 @@ func main() {
 	// TEACHER
 	// =========================
 
-	teacherRepo := teacherRepository.NewTeacherRepository(db)
+	//teacherRepo := teacherRepository.NewTeacherRepository(db)
 
 	teacherSvc := teacherService.NewTeacherService(
 		teacherRepo,
@@ -118,7 +124,7 @@ func main() {
 	// CLASSROOM
 	// =========================
 
-	classroomRepo := classroomRepository.NewClassroomRepository(db)
+	//classroomRepo := classroomRepository.NewClassroomRepository(db)
 
 	classroomSvc := classroomService.NewClassroomService(
 		classroomRepo,
@@ -132,7 +138,7 @@ func main() {
 	// STUDENT
 	// =========================
 
-	studentRepo := studentRepository.NewStudentRepository(db)
+	//studentRepo := studentRepository.NewStudentRepository(db)
 
 	studentSvc := studentService.NewStudentService(
 		studentRepo,
@@ -274,6 +280,11 @@ func main() {
 	// =========================
 	// COLLEGE ROUTES
 	// =========================
+
+	adminOnly.GET(
+		"/colleges/me/dashboard",
+		collegeH.GetDashboard,
+	)
 
 	collegesRead := allUsers.Group("/colleges")
 	{

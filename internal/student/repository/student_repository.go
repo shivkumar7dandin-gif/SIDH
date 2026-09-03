@@ -151,3 +151,27 @@ func (r *StudentRepository) CountByClassroom(
 
 	return count, nil
 }
+
+func (r *StudentRepository) GetByCollegeID(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+) ([]model.Student, error) {
+
+	filter := bson.M{
+		"college_id": collegeID,
+	}
+
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var students []model.Student
+
+	if err := cursor.All(ctx, &students); err != nil {
+		return nil, err
+	}
+
+	return students, nil
+}

@@ -12,6 +12,7 @@ type Address struct {
 }
 
 type Student struct {
+	CollegeID   bson.ObjectID `json:"college_id" bson:"college_id"`
 	ID          bson.ObjectID `json:"id" bson:"_id,omitempty"`
 	Name        string        `json:"name" bson:"name"`
 	Age         int           `json:"age" bson:"age"`

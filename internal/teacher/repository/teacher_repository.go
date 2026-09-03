@@ -125,3 +125,27 @@ func (r *TeacherRepository) Delete(
 
 	return err
 }
+
+func (r *TeacherRepository) GetByCollegeID(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+) ([]model.Teacher, error) {
+
+	filter := bson.M{
+		"college_id": collegeID,
+	}
+
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var teachers []model.Teacher
+
+	if err := cursor.All(ctx, &teachers); err != nil {
+		return nil, err
+	}
+
+	return teachers, nil
+}

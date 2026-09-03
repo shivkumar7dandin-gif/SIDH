@@ -21,10 +21,26 @@ func NewClassroomService(
 	}
 }
 
+// func (s *ClassroomService) Create(
+// 	ctx context.Context,
+// 	classroom model.Classroom,
+// ) (*model.Classroom, error) {
+
+// 	return s.repository.Create(ctx, classroom)
+// }
+
 func (s *ClassroomService) Create(
 	ctx context.Context,
-	classroom model.Classroom,
+	req model.CreateClassroomRequest,
+	collegeID bson.ObjectID,
 ) (*model.Classroom, error) {
+
+	classroom := model.Classroom{
+		CollegeID: collegeID,
+		Name:      req.Name,
+		Section:   req.Section,
+		Capacity:  req.Capacity,
+	}
 
 	return s.repository.Create(ctx, classroom)
 }
