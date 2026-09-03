@@ -8,20 +8,31 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shivkumar7dandin-gif/students-api/internal/student/model"
-	"github.com/shivkumar7dandin-gif/students-api/internal/student/service"
+	studentModel "github.com/shivkumar7dandin-gif/students-api/internal/student/model"
+	studentService "github.com/shivkumar7dandin-gif/students-api/internal/student/service"
+
+	assessmentService "github.com/shivkumar7dandin-gif/students-api/internal/assessment/service"
+	attendanceService "github.com/shivkumar7dandin-gif/students-api/internal/attendance/service"
+
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type StudentHandler struct {
-	service *service.StudentService
+	service           *studentService.StudentService
+	attendanceService *attendanceService.AttendanceService
+	assessmentService *assessmentService.AssessmentService
 }
 
 func NewStudentHandler(
-	service *service.StudentService,
+	service *studentService.StudentService,
+	attendanceService *attendanceService.AttendanceService,
+	assessmentService *assessmentService.AssessmentService,
 ) *StudentHandler {
+
 	return &StudentHandler{
-		service: service,
+		service:           service,
+		attendanceService: attendanceService,
+		assessmentService: assessmentService,
 	}
 }
 
@@ -34,7 +45,6 @@ func NewStudentHandler(
 
 func (h *StudentHandler) Create(c *gin.Context) {
 
-	// Read request body
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -58,31 +68,33 @@ func (h *StudentHandler) Create(c *gin.Context) {
 
 	if body[0] == '{' {
 
-		var student model.Student
+		var req studentModel.CreateStudentRequest
 
-		if err := json.Unmarshal(body, &student); err != nil {
+		if err := json.Unmarshal(
+			body,
+			&req,
+		); err != nil {
+
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
 
-		// Validate student
-		if err := validateStudent(student); err != nil {
+		if err := validateCreateStudent(req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
 
-		// Create student
 		createdStudent, err := h.service.Create(
 			c.Request.Context(),
-			student,
+			req,
 		)
 
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
+			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err.Error(),
 			})
 			return
@@ -102,44 +114,57 @@ func (h *StudentHandler) Create(c *gin.Context) {
 
 	if body[0] == '[' {
 
-		var students []model.Student
+		var requests []studentModel.CreateStudentRequest
 
-		if err := json.Unmarshal(body, &students); err != nil {
+		if err := json.Unmarshal(
+			body,
+			&requests,
+		); err != nil {
+
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
 
-		// Check empty array
-		if len(students) == 0 {
+		if len(requests) == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "student list cannot be empty",
 			})
 			return
 		}
 
-		createdStudents := make([]*model.Student, 0, len(students))
+		createdStudents := make(
+			[]*studentModel.Student,
+			0,
+			len(requests),
+		)
 
-		for _, student := range students {
+		for index, req := range requests {
 
-			// Validate student
-			if err := validateStudent(student); err != nil {
+			if err := validateCreateStudent(req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
-					"error": err.Error(),
+					"error": fmt.Sprintf(
+						"student at index %d: %s",
+						index,
+						err.Error(),
+					),
 				})
 				return
 			}
 
-			// Create student
 			createdStudent, err := h.service.Create(
 				c.Request.Context(),
-				student,
+				req,
 			)
 
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error": err.Error(),
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": fmt.Sprintf(
+						"student at index %d: %s",
+						index,
+						err.Error(),
+					),
 				})
 				return
 			}
@@ -158,20 +183,61 @@ func (h *StudentHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// =====================================================
-	// INVALID REQUEST
-	// =====================================================
-
 	c.JSON(http.StatusBadRequest, gin.H{
 		"error": "request body must be a student object or an array of students",
 	})
 }
 
 // =====================================================
-// VALIDATE STUDENT
+// VALIDATE CREATE STUDENT
 // =====================================================
 
-func validateStudent(student model.Student) error {
+func validateCreateStudent(
+	req studentModel.CreateStudentRequest,
+) error {
+
+	if req.Name == "" {
+		return fmt.Errorf("student name is required")
+	}
+
+	if req.Age <= 0 {
+		return fmt.Errorf("age must be greater than 0")
+	}
+
+	if req.RollNumber <= 0 {
+		return fmt.Errorf(
+			"roll number must be greater than 0",
+		)
+	}
+
+	if req.ClassroomID == "" {
+		return fmt.Errorf("classroom_id is required")
+	}
+
+	if req.Username == "" {
+		return fmt.Errorf("username is required")
+	}
+
+	if req.Password == "" {
+		return fmt.Errorf("password is required")
+	}
+
+	if len(req.Password) < 8 {
+		return fmt.Errorf(
+			"password must contain at least 8 characters",
+		)
+	}
+
+	return nil
+}
+
+// =====================================================
+// VALIDATE STUDENT FOR UPDATE
+// =====================================================
+
+func validateStudent(
+	student studentModel.Student,
+) error {
 
 	if student.Name == "" {
 		return fmt.Errorf("student name is required")
@@ -182,7 +248,9 @@ func validateStudent(student model.Student) error {
 	}
 
 	if student.RollNumber <= 0 {
-		return fmt.Errorf("roll number must be greater than 0")
+		return fmt.Errorf(
+			"roll number must be greater than 0",
+		)
 	}
 
 	if student.ClassroomID == "" {
@@ -210,7 +278,10 @@ func (h *StudentHandler) GetAll(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, students)
+	c.JSON(
+		http.StatusOK,
+		students,
+	)
 }
 
 // =====================================================
@@ -243,7 +314,10 @@ func (h *StudentHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, student)
+	c.JSON(
+		http.StatusOK,
+		student,
+	)
 }
 
 // =====================================================
@@ -264,16 +338,18 @@ func (h *StudentHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var student model.Student
+	var student studentModel.Student
 
-	if err := c.ShouldBindJSON(&student); err != nil {
+	if err := c.ShouldBindJSON(
+		&student,
+	); err != nil {
+
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
 		return
 	}
 
-	// Validate student
 	if err := validateStudent(student); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
@@ -331,5 +407,125 @@ func (h *StudentHandler) Delete(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "student deleted successfully",
+	})
+}
+
+// =====================================================
+// GET LOGGED-IN STUDENT DETAILS
+// GET /api/v1/students/me
+// =====================================================
+
+func (h *StudentHandler) GetMe(c *gin.Context) {
+
+	// ------------------------------------------
+	// 1. Get role from JWT context
+	// ------------------------------------------
+
+	roleValue, exists := c.Get("role")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "role not found",
+		})
+		return
+	}
+
+	role, ok := roleValue.(string)
+	if !ok || role != "student" {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "only students can access this API",
+		})
+		return
+	}
+
+	// ------------------------------------------
+	// 2. Get reference_id from JWT
+	// ------------------------------------------
+
+	referenceIDValue, exists := c.Get("reference_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "reference_id not found",
+		})
+		return
+	}
+
+	referenceIDString, ok := referenceIDValue.(string)
+	if !ok || referenceIDString == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "invalid reference_id",
+		})
+		return
+	}
+
+	// ------------------------------------------
+	// 3. Convert reference_id to ObjectID
+	// ------------------------------------------
+
+	studentID, err := bson.ObjectIDFromHex(
+		referenceIDString,
+	)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid student reference id",
+		})
+		return
+	}
+
+	// ------------------------------------------
+	// 4. Get student profile
+	// ------------------------------------------
+
+	student, err := h.service.GetByID(
+		c.Request.Context(),
+		studentID,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "student not found",
+		})
+		return
+	}
+
+	// ------------------------------------------
+	// 5. Get attendance summary
+	// ------------------------------------------
+
+	attendanceSummary, err := h.attendanceService.GetSummary(
+		c.Request.Context(),
+		studentID,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to get attendance summary",
+		})
+		return
+	}
+
+	// ------------------------------------------
+	// 6. Get assessments
+	// ------------------------------------------
+
+	assessments, err := h.assessmentService.GetByStudent(
+		c.Request.Context(),
+		studentID,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to get student assessments",
+		})
+		return
+	}
+
+	// ------------------------------------------
+	// 7. Combined response
+	// ------------------------------------------
+
+	c.JSON(http.StatusOK, gin.H{
+		"student":            student,
+		"attendance_summary": attendanceSummary,
+		"assessments":        assessments,
 	})
 }

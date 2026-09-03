@@ -78,7 +78,7 @@ func (s *AuthService) Login(
 			),
 
 			ExpiresAt: jwt.NewNumericDate(
-				time.Now().Add(24 * time.Hour),
+				time.Now().Add(10 * time.Minute),
 			),
 		},
 	}

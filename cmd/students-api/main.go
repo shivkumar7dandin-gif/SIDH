@@ -137,10 +137,7 @@ func main() {
 	studentSvc := studentService.NewStudentService(
 		studentRepo,
 		classroomRepo,
-	)
-
-	studentH := studentHandler.NewStudentHandler(
-		studentSvc,
+		userRepo,
 	)
 
 	// =========================
@@ -168,6 +165,12 @@ func main() {
 	)
 
 	assessmentH := assessmentHandler.NewAssessmentHandler(
+		assessmentSvc,
+	)
+
+	studentH := studentHandler.NewStudentHandler(
+		studentSvc,
+		attendanceSvc,
 		assessmentSvc,
 	)
 
@@ -391,6 +394,15 @@ func main() {
 			studentH.Delete,
 		)
 	}
+	studentOnly := protected.Group("")
+	studentOnly.Use(
+		authMiddleware.RequireRole("student"),
+	)
+
+	studentOnly.GET(
+		"/students/me",
+		studentH.GetMe,
+	)
 
 	// =========================
 	// ATTENDANCE ROUTES

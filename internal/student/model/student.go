@@ -19,4 +19,7 @@ type Student struct {
 	Gender      string        `json:"gender" bson:"gender"`
 	ClassroomID string        `json:"classroom_id" bson:"classroom_id"`
 	Address     Address       `json:"address" bson:"address"`
+
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
