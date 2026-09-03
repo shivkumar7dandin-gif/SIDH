@@ -162,3 +162,54 @@ func (h *TeacherHandler) Delete(c *gin.Context) {
 		},
 	)
 }
+
+// =====================================================
+// GET LOGGED-IN TEACHER DETAILS
+// GET /api/v1/teachers/me
+// =====================================================
+
+func (h *TeacherHandler) GetMe(c *gin.Context) {
+
+	// Get reference_id added by AuthMiddleware
+	referenceIDValue, exists := c.Get("reference_id")
+
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "reference_id not found",
+		})
+		return
+	}
+
+	referenceID, ok := referenceIDValue.(string)
+
+	if !ok || referenceID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "invalid reference_id",
+		})
+		return
+	}
+
+	// Convert string ID to MongoDB ObjectID
+	teacher, err := h.service.GetByID(
+		c.Request.Context(),
+		referenceID,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "teacher not found",
+		})
+		return
+	}
+
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "teacher not found",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"teacher": teacher,
+	})
+}

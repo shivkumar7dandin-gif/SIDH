@@ -325,6 +325,15 @@ func main() {
 		)
 	}
 
+	teacherOnly := protected.Group("")
+	teacherOnly.Use(
+		authMiddleware.RequireRole("teacher"),
+	)
+
+	teacherOnly.GET(
+		"/teachers/me",
+		teacherH.GetMe,
+	)
 	// =========================
 	// CLASSROOM ROUTES
 	// =========================
