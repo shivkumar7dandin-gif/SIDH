@@ -25,7 +25,6 @@ func (r *StudentRepository) Create(
 ) (*model.Student, error) {
 
 	result, err := r.collection.InsertOne(ctx, student)
-
 	if err != nil {
 		return nil, err
 	}
@@ -41,14 +40,13 @@ func (r *StudentRepository) GetAll(
 ) ([]model.Student, error) {
 
 	cursor, err := r.collection.Find(ctx, bson.M{})
-
 	if err != nil {
 		return nil, err
 	}
 
 	defer cursor.Close(ctx)
 
-	var students []model.Student
+	students := make([]model.Student, 0)
 
 	if err := cursor.All(ctx, &students); err != nil {
 		return nil, err
@@ -67,7 +65,9 @@ func (r *StudentRepository) GetByID(
 
 	err := r.collection.FindOne(
 		ctx,
-		bson.M{"_id": id},
+		bson.M{
+			"_id": id,
+		},
 	).Decode(&student)
 
 	if err != nil {
@@ -89,13 +89,17 @@ func (r *StudentRepository) Update(
 			"name":         student.Name,
 			"roll_number":  student.RollNumber,
 			"age":          student.Age,
+			"gender":       student.Gender,
 			"classroom_id": student.ClassroomID,
+			"address":      student.Address,
 		},
 	}
 
 	result, err := r.collection.UpdateOne(
 		ctx,
-		bson.M{"_id": id},
+		bson.M{
+			"_id": id,
+		},
 		update,
 	)
 
@@ -118,7 +122,9 @@ func (r *StudentRepository) Delete(
 
 	result, err := r.collection.DeleteOne(
 		ctx,
-		bson.M{"_id": id},
+		bson.M{
+			"_id": id,
+		},
 	)
 
 	if err != nil {
@@ -132,7 +138,7 @@ func (r *StudentRepository) Delete(
 	return nil
 }
 
-// Count students in a classroom
+// Count students inside one classroom
 func (r *StudentRepository) CountByClassroom(
 	ctx context.Context,
 	classroomID string,
@@ -152,6 +158,33 @@ func (r *StudentRepository) CountByClassroom(
 	return count, nil
 }
 
+// Check duplicate roll number inside same classroom
+func (r *StudentRepository) ExistsByClassroomAndRollNumber(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+	classroomID string,
+	rollNumber int,
+) (bool, error) {
+
+	filter := bson.M{
+		"college_id":   collegeID,
+		"classroom_id": classroomID,
+		"roll_number":  rollNumber,
+	}
+
+	count, err := r.collection.CountDocuments(
+		ctx,
+		filter,
+	)
+
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+// Get students belonging to one college
 func (r *StudentRepository) GetByCollegeID(
 	ctx context.Context,
 	collegeID bson.ObjectID,
@@ -161,17 +194,56 @@ func (r *StudentRepository) GetByCollegeID(
 		"college_id": collegeID,
 	}
 
-	cursor, err := r.collection.Find(ctx, filter)
+	cursor, err := r.collection.Find(
+		ctx,
+		filter,
+	)
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer cursor.Close(ctx)
 
-	var students []model.Student
+	students := make([]model.Student, 0)
 
-	if err := cursor.All(ctx, &students); err != nil {
+	if err := cursor.All(
+		ctx,
+		&students,
+	); err != nil {
 		return nil, err
 	}
 
 	return students, nil
+}
+
+func (r *StudentRepository) ExistsByClassroomAndRollNumberExceptID(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+	classroomID string,
+	rollNumber int,
+	studentID bson.ObjectID,
+) (bool, error) {
+
+	filter := bson.M{
+		"college_id":   collegeID,
+		"classroom_id": classroomID,
+		"roll_number":  rollNumber,
+
+		// Ignore the student currently being edited
+		"_id": bson.M{
+			"$ne": studentID,
+		},
+	}
+
+	count, err := r.collection.CountDocuments(
+		ctx,
+		filter,
+	)
+
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }

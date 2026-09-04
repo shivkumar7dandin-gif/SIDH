@@ -12,15 +12,12 @@ type Address struct {
 }
 
 type Student struct {
-	CollegeID   bson.ObjectID `json:"college_id" bson:"college_id"`
 	ID          bson.ObjectID `json:"id" bson:"_id,omitempty"`
+	CollegeID   bson.ObjectID `json:"college_id" bson:"college_id"`
 	Name        string        `json:"name" bson:"name"`
 	Age         int           `json:"age" bson:"age"`
 	RollNumber  int           `json:"roll_number" bson:"roll_number"`
 	Gender      string        `json:"gender" bson:"gender"`
 	ClassroomID string        `json:"classroom_id" bson:"classroom_id"`
 	Address     Address       `json:"address" bson:"address"`
-
-	Username string `json:"username"`
-	Password string `json:"password"`
 }

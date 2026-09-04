@@ -152,7 +152,6 @@ func (r *ClassroomRepository) GetByName(
 
 	return &classroom, nil
 }
-
 func (r *ClassroomRepository) GetByCollegeID(
 	ctx context.Context,
 	collegeID bson.ObjectID,
@@ -168,11 +167,32 @@ func (r *ClassroomRepository) GetByCollegeID(
 	}
 	defer cursor.Close(ctx)
 
-	var classrooms []model.Classroom
+	classrooms := make([]model.Classroom, 0)
 
 	if err := cursor.All(ctx, &classrooms); err != nil {
 		return nil, err
 	}
 
 	return classrooms, nil
+}
+
+func (r *ClassroomRepository) ExistsByNameAndSection(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+	name string,
+	section string,
+) (bool, error) {
+
+	filter := bson.M{
+		"college_id": collegeID,
+		"name":       name,
+		"section":    section,
+	}
+
+	count, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }

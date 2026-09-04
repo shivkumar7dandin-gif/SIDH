@@ -67,6 +67,18 @@ func (s *StudentService) Create(
 		return nil, errors.New("classroom_id is required")
 	}
 
+	if req.RollNumber <= 0 {
+		return nil, errors.New(
+			"roll number must be greater than 0",
+		)
+	}
+
+	if req.Age <= 0 {
+		return nil, errors.New(
+			"student age must be greater than 0",
+		)
+	}
+
 	// ------------------------------------------------
 	// 2. Check username already exists
 	// ------------------------------------------------
@@ -75,6 +87,7 @@ func (s *StudentService) Create(
 		ctx,
 		req.Username,
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to check username: %w",
@@ -83,29 +96,77 @@ func (s *StudentService) Create(
 	}
 
 	if exists {
-		return nil, errors.New("username already exists")
+		return nil, errors.New(
+			"username already exists",
+		)
 	}
 
 	// ------------------------------------------------
-	// 3. Check classroom exists
+	// 3. Convert classroom ID
 	// ------------------------------------------------
 
-	classroom, err := s.classroomRepo.GetByName(
-		ctx,
+	classroomObjectID, err := bson.ObjectIDFromHex(
 		req.ClassroomID,
 	)
+
 	if err != nil {
-		return nil, errors.New("invalid classroom_id")
+		return nil, errors.New(
+			"invalid classroom_id",
+		)
 	}
 
 	// ------------------------------------------------
-	// 4. Count students in classroom
+	// 4. Check classroom exists
+	// ------------------------------------------------
+
+	classroom, err := s.classroomRepo.GetByID(
+		ctx,
+		classroomObjectID,
+	)
+
+	if err != nil {
+		return nil, errors.New(
+			"classroom not found",
+		)
+	}
+
+	// ------------------------------------------------
+	// 5. Check duplicate roll number
+	// ------------------------------------------------
+
+	duplicateStudent, err :=
+		s.studentRepo.ExistsByClassroomAndRollNumber(
+			ctx,
+			classroom.CollegeID,
+			req.ClassroomID,
+			req.RollNumber,
+		)
+
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to check duplicate student: %w",
+			err,
+		)
+	}
+
+	if duplicateStudent {
+		return nil, fmt.Errorf(
+			"roll number %d already exists in %s - Section %s",
+			req.RollNumber,
+			classroom.Name,
+			classroom.Section,
+		)
+	}
+
+	// ------------------------------------------------
+	// 6. Count students in classroom
 	// ------------------------------------------------
 
 	count, err := s.studentRepo.CountByClassroom(
 		ctx,
 		req.ClassroomID,
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to count classroom students: %w",
@@ -114,20 +175,23 @@ func (s *StudentService) Create(
 	}
 
 	// ------------------------------------------------
-	// 5. Check classroom capacity
+	// 7. Check classroom capacity
 	// ------------------------------------------------
 
 	if count >= int64(classroom.Capacity) {
-		return nil, errors.New(
-			"classroom seats are full, not able to enroll in this classroom",
+		return nil, fmt.Errorf(
+			"%s - Section %s is full",
+			classroom.Name,
+			classroom.Section,
 		)
 	}
 
 	// ------------------------------------------------
-	// 6. Create student object
+	// 8. Create student object
 	// ------------------------------------------------
 
 	student := studentModel.Student{
+		CollegeID:   classroom.CollegeID,
 		Name:        req.Name,
 		Age:         req.Age,
 		RollNumber:  req.RollNumber,
@@ -137,13 +201,14 @@ func (s *StudentService) Create(
 	}
 
 	// ------------------------------------------------
-	// 7. Save student
+	// 9. Save student
 	// ------------------------------------------------
 
 	createdStudent, err := s.studentRepo.Create(
 		ctx,
 		student,
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to create student: %w",
@@ -152,13 +217,14 @@ func (s *StudentService) Create(
 	}
 
 	// ------------------------------------------------
-	// 8. Hash student password
+	// 10. Hash password
 	// ------------------------------------------------
 
 	passwordHash, err := bcrypt.GenerateFromPassword(
 		[]byte(req.Password),
 		bcrypt.DefaultCost,
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to hash password: %w",
@@ -167,7 +233,7 @@ func (s *StudentService) Create(
 	}
 
 	// ------------------------------------------------
-	// 9. Create student user account
+	// 11. Create student login account
 	// ------------------------------------------------
 
 	user := userModel.User{
@@ -218,11 +284,136 @@ func (s *StudentService) Update(
 	student studentModel.Student,
 ) error {
 
-	return s.studentRepo.Update(
+	// ------------------------------------------
+	// 1. Get existing student
+	// ------------------------------------------
+
+	existingStudent, err :=
+		s.studentRepo.GetByID(
+			ctx,
+			id,
+		)
+
+	if err != nil {
+		return errors.New(
+			"student not found",
+		)
+	}
+
+	// ------------------------------------------
+	// 2. Validate classroom ID
+	// ------------------------------------------
+
+	classroomObjectID, err :=
+		bson.ObjectIDFromHex(
+			student.ClassroomID,
+		)
+
+	if err != nil {
+		return errors.New(
+			"invalid classroom_id",
+		)
+	}
+
+	// ------------------------------------------
+	// 3. Get classroom
+	// ------------------------------------------
+
+	classroom, err :=
+		s.classroomRepo.GetByID(
+			ctx,
+			classroomObjectID,
+		)
+
+	if err != nil {
+		return errors.New(
+			"classroom not found",
+		)
+	}
+
+	// ------------------------------------------
+	// 4. Prevent duplicate roll number
+	// ------------------------------------------
+
+	exists, err :=
+		s.studentRepo.
+			ExistsByClassroomAndRollNumberExceptID(
+				ctx,
+				classroom.CollegeID,
+				student.ClassroomID,
+				student.RollNumber,
+				id,
+			)
+
+	if err != nil {
+		return fmt.Errorf(
+			"failed to check duplicate student: %w",
+			err,
+		)
+	}
+
+	if exists {
+		return fmt.Errorf(
+			"roll number %d already exists in %s - Section %s",
+			student.RollNumber,
+			classroom.Name,
+			classroom.Section,
+		)
+	}
+
+	// ------------------------------------------
+	// 5. Check classroom capacity
+	// ------------------------------------------
+
+	if existingStudent.ClassroomID !=
+		student.ClassroomID {
+
+		count, err :=
+			s.studentRepo.CountByClassroom(
+				ctx,
+				student.ClassroomID,
+			)
+
+		if err != nil {
+			return fmt.Errorf(
+				"failed to check classroom capacity: %w",
+				err,
+			)
+		}
+
+		if count >= int64(
+			classroom.Capacity,
+		) {
+			return fmt.Errorf(
+				"%s - Section %s is full",
+				classroom.Name,
+				classroom.Section,
+			)
+		}
+	}
+
+	// ------------------------------------------
+	// 6. Keep correct college ID
+	// ------------------------------------------
+
+	student.CollegeID =
+		classroom.CollegeID
+
+	// ------------------------------------------
+	// 7. Update student
+	// ------------------------------------------
+
+	err = s.studentRepo.Update(
 		ctx,
 		id,
 		student,
 	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Delete student
@@ -234,5 +425,17 @@ func (s *StudentService) Delete(
 	return s.studentRepo.Delete(
 		ctx,
 		id,
+	)
+}
+
+// Get students by college
+func (s *StudentService) GetByCollegeID(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+) ([]studentModel.Student, error) {
+
+	return s.studentRepo.GetByCollegeID(
+		ctx,
+		collegeID,
 	)
 }

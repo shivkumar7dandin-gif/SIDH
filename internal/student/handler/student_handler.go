@@ -267,14 +267,51 @@ func validateStudent(
 
 func (h *StudentHandler) GetAll(c *gin.Context) {
 
-	students, err := h.service.GetAll(
+	referenceIDValue, exists := c.Get("reference_id")
+	if !exists {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "college reference id not found",
+			},
+		)
+		return
+	}
+
+	referenceID, ok := referenceIDValue.(string)
+	if !ok {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "invalid college reference id",
+			},
+		)
+		return
+	}
+
+	collegeID, err := bson.ObjectIDFromHex(referenceID)
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
+		return
+	}
+
+	students, err := h.service.GetByCollegeID(
 		c.Request.Context(),
+		collegeID,
 	)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		c.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
 		return
 	}
 
@@ -364,8 +401,8 @@ func (h *StudentHandler) Update(c *gin.Context) {
 	)
 
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "student not found",
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
 		})
 		return
 	}

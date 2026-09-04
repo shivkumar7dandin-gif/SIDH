@@ -6,6 +6,8 @@ type Teacher struct {
 	ID        bson.ObjectID `json:"id" bson:"_id,omitempty"`
 	CollegeID bson.ObjectID `json:"college_id" bson:"college_id"`
 	Name      string        `json:"name" bson:"name"`
+	Age       int           `json:"age" bson:"age"`
+	Gender    string        `json:"gender" bson:"gender"`
 	Email     string        `json:"email" bson:"email"`
 	Phone     string        `json:"phone" bson:"phone"`
 	Subject   string        `json:"subject" bson:"subject"`
@@ -15,6 +17,8 @@ type Teacher struct {
 type CreateTeacherRequest struct {
 	CollegeID string `json:"college_id"`
 	Name      string `json:"name"`
+	Age       int    `json:"age"`
+	Gender    string `json:"gender"`
 	Email     string `json:"email"`
 	Phone     string `json:"phone"`
 	Subject   string `json:"subject"`
