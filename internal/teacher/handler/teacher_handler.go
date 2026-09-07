@@ -42,31 +42,29 @@ func (h *TeacherHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Get college ID from JWT
-	referenceIDValue, exists := c.Get("reference_id")
+	collegeIDValue, exists := c.Get("college_id")
 	if !exists {
 		c.JSON(
 			http.StatusUnauthorized,
 			gin.H{
-				"error": "reference_id not found",
+				"error": "college_id not found",
 			},
 		)
 		return
 	}
 
-	referenceID, ok := referenceIDValue.(string)
-	if !ok || referenceID == "" {
+	collegeID, ok := collegeIDValue.(string)
+	if !ok || collegeID == "" {
 		c.JSON(
 			http.StatusUnauthorized,
 			gin.H{
-				"error": "invalid reference_id",
+				"error": "invalid college_id",
 			},
 		)
 		return
 	}
 
-	// Use logged-in college ID
-	req.CollegeID = referenceID
+	req.CollegeID = collegeID
 
 	teacher, err := h.service.Create(
 		c.Request.Context(),
@@ -96,37 +94,37 @@ func (h *TeacherHandler) Create(c *gin.Context) {
 
 func (h *TeacherHandler) GetAll(c *gin.Context) {
 
-	// Get college ID from JWT
-	referenceIDValue, exists := c.Get(
-		"reference_id",
+	collegeIDValue, exists := c.Get(
+		"college_id",
 	)
 
 	if !exists {
 		c.JSON(
 			http.StatusUnauthorized,
 			gin.H{
-				"error": "reference_id not found",
+				"error": "college_id not found",
 			},
 		)
 		return
 	}
 
-	referenceID, ok :=
-		referenceIDValue.(string)
+	collegeIDString, ok :=
+		collegeIDValue.(string)
 
-	if !ok || referenceID == "" {
+	if !ok || collegeIDString == "" {
 		c.JSON(
 			http.StatusUnauthorized,
 			gin.H{
-				"error": "invalid reference_id",
+				"error": "invalid college_id",
 			},
 		)
 		return
 	}
 
-	// Convert college ID to ObjectID
 	collegeID, err :=
-		bson.ObjectIDFromHex(referenceID)
+		bson.ObjectIDFromHex(
+			collegeIDString,
+		)
 
 	if err != nil {
 		c.JSON(
@@ -138,7 +136,6 @@ func (h *TeacherHandler) GetAll(c *gin.Context) {
 		return
 	}
 
-	// Get only this college's teachers
 	teachers, err :=
 		h.service.GetByCollegeID(
 			c.Request.Context(),
@@ -168,16 +165,54 @@ func (h *TeacherHandler) GetAll(c *gin.Context) {
 
 func (h *TeacherHandler) GetByID(c *gin.Context) {
 
-	teacher, err := h.service.GetByID(
+	// Get college_id from JWT
+	collegeIDValue, exists := c.Get("college_id")
+	if !exists {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "college_id not found",
+			},
+		)
+		return
+	}
+
+	collegeIDString, ok := collegeIDValue.(string)
+	if !ok || collegeIDString == "" {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "invalid college_id",
+			},
+		)
+		return
+	}
+
+	collegeID, err := bson.ObjectIDFromHex(
+		collegeIDString,
+	)
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
+		return
+	}
+
+	// Get teacher only from same college
+	teacher, err := h.service.GetByIDAndCollegeID(
 		c.Request.Context(),
 		c.Param("id"),
+		collegeID,
 	)
 
 	if err != nil {
 		c.JSON(
 			http.StatusNotFound,
 			gin.H{
-				"error": err.Error(),
+				"error": "teacher not found",
 			},
 		)
 		return
@@ -196,12 +231,49 @@ func (h *TeacherHandler) GetByID(c *gin.Context) {
 
 func (h *TeacherHandler) Update(c *gin.Context) {
 
+	// Get college_id from JWT
+	collegeIDValue, exists := c.Get("college_id")
+
+	if !exists {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "college_id not found",
+			},
+		)
+		return
+	}
+
+	collegeIDString, ok := collegeIDValue.(string)
+
+	if !ok || collegeIDString == "" {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "invalid college_id",
+			},
+		)
+		return
+	}
+
+	collegeID, err := bson.ObjectIDFromHex(
+		collegeIDString,
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
+		return
+	}
+
+	// Read teacher data
 	var teacher teacherModel.Teacher
 
-	if err := c.ShouldBindJSON(
-		&teacher,
-	); err != nil {
-
+	if err := c.ShouldBindJSON(&teacher); err != nil {
 		c.JSON(
 			http.StatusBadRequest,
 			gin.H{
@@ -211,9 +283,11 @@ func (h *TeacherHandler) Update(c *gin.Context) {
 		return
 	}
 
-	err := h.service.Update(
+	// Tenant-safe update
+	err = h.service.UpdateByCollegeID(
 		c.Request.Context(),
 		c.Param("id"),
+		collegeID,
 		teacher,
 	)
 
@@ -236,15 +310,142 @@ func (h *TeacherHandler) Update(c *gin.Context) {
 }
 
 // =====================================================
+// UPDATE TEACHER STATUS
+// PATCH /api/v1/teachers/:id/status
+// =====================================================
+
+func (h *TeacherHandler) UpdateStatus(c *gin.Context) {
+
+	var req struct {
+		Status string `json:"status"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid request body",
+			},
+		)
+		return
+	}
+
+	// Get college_id from JWT
+	collegeIDValue, exists := c.Get("college_id")
+
+	if !exists {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "college_id not found",
+			},
+		)
+		return
+	}
+
+	collegeIDString, ok := collegeIDValue.(string)
+
+	if !ok || collegeIDString == "" {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "invalid college_id",
+			},
+		)
+		return
+	}
+
+	collegeID, err := bson.ObjectIDFromHex(
+		collegeIDString,
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
+		return
+	}
+
+	// Tenant-safe status update
+	err = h.service.UpdateStatusByCollegeID(
+		c.Request.Context(),
+		c.Param("id"),
+		collegeID,
+		req.Status,
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+		return
+	}
+
+	c.JSON(
+		http.StatusOK,
+		gin.H{
+			"message": "teacher status updated successfully",
+		},
+	)
+}
+
+// =====================================================
 // DELETE TEACHER
 // DELETE /api/v1/teachers/:id
 // =====================================================
 
 func (h *TeacherHandler) Delete(c *gin.Context) {
 
-	err := h.service.Delete(
+	// Get college_id from JWT
+	collegeIDValue, exists := c.Get("college_id")
+
+	if !exists {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "college_id not found",
+			},
+		)
+		return
+	}
+
+	collegeIDString, ok := collegeIDValue.(string)
+
+	if !ok || collegeIDString == "" {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "invalid college_id",
+			},
+		)
+		return
+	}
+
+	collegeID, err := bson.ObjectIDFromHex(
+		collegeIDString,
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
+		return
+	}
+
+	// Tenant-safe delete
+	err = h.service.DeleteByCollegeID(
 		c.Request.Context(),
 		c.Param("id"),
+		collegeID,
 	)
 
 	if err != nil {

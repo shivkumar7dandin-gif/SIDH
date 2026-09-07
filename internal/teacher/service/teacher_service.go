@@ -24,7 +24,6 @@ func NewTeacherService(
 	teacherRepo *teacherRepository.TeacherRepository,
 	userRepo *userRepository.UserRepository,
 ) *TeacherService {
-
 	return &TeacherService{
 		teacherRepo: teacherRepo,
 		userRepo:    userRepo,
@@ -36,7 +35,6 @@ func (s *TeacherService) Create(
 	req teacherModel.CreateTeacherRequest,
 ) (*teacherModel.Teacher, error) {
 
-	// Clean input
 	req.Name = strings.TrimSpace(req.Name)
 	req.Gender = strings.TrimSpace(req.Gender)
 	req.Email = strings.TrimSpace(req.Email)
@@ -44,7 +42,6 @@ func (s *TeacherService) Create(
 	req.Subject = strings.TrimSpace(req.Subject)
 	req.Username = strings.TrimSpace(req.Username)
 
-	// Validation
 	if req.Name == "" {
 		return nil, errors.New("teacher name is required")
 	}
@@ -91,7 +88,6 @@ func (s *TeacherService) Create(
 		)
 	}
 
-	// Convert college id
 	collegeID, err := bson.ObjectIDFromHex(
 		req.CollegeID,
 	)
@@ -101,7 +97,6 @@ func (s *TeacherService) Create(
 		)
 	}
 
-	// Check username
 	exists, err := s.userRepo.UsernameExists(
 		ctx,
 		req.Username,
@@ -116,7 +111,6 @@ func (s *TeacherService) Create(
 		)
 	}
 
-	// Create teacher
 	teacher := teacherModel.Teacher{
 		CollegeID: collegeID,
 		Name:      req.Name,
@@ -126,6 +120,7 @@ func (s *TeacherService) Create(
 		Phone:     req.Phone,
 		Subject:   req.Subject,
 		Username:  req.Username,
+		Status:    "active",
 	}
 
 	createdTeacher, err :=
@@ -138,7 +133,6 @@ func (s *TeacherService) Create(
 		return nil, err
 	}
 
-	// Hash password
 	passwordHash, err :=
 		bcrypt.GenerateFromPassword(
 			[]byte(req.Password),
@@ -149,12 +143,12 @@ func (s *TeacherService) Create(
 		return nil, err
 	}
 
-	// Create login user
 	user := userModel.User{
 		Username:     req.Username,
 		PasswordHash: string(passwordHash),
 		Role:         "teacher",
 		ReferenceID:  createdTeacher.ID,
+		CollegeID:    createdTeacher.CollegeID,
 	}
 
 	err = s.userRepo.Create(
@@ -287,6 +281,38 @@ func (s *TeacherService) Delete(
 	)
 }
 
+func (s *TeacherService) UpdateStatus(
+	ctx context.Context,
+	id string,
+	status string,
+) error {
+
+	objectID, err :=
+		bson.ObjectIDFromHex(id)
+
+	if err != nil {
+		return errors.New(
+			"invalid teacher id",
+		)
+	}
+
+	status = strings.ToLower(
+		strings.TrimSpace(status),
+	)
+
+	if status != "active" && status != "left" {
+		return errors.New(
+			"status must be active or left",
+		)
+	}
+
+	return s.teacherRepo.UpdateStatus(
+		ctx,
+		objectID,
+		status,
+	)
+}
+
 func (s *TeacherService) GetByCollegeID(
 	ctx context.Context,
 	collegeID bson.ObjectID,
@@ -295,5 +321,123 @@ func (s *TeacherService) GetByCollegeID(
 	return s.teacherRepo.GetByCollegeID(
 		ctx,
 		collegeID,
+	)
+}
+
+func (s *TeacherService) GetByIDAndCollegeID(
+	ctx context.Context,
+	id string,
+	collegeID bson.ObjectID,
+) (*teacherModel.Teacher, error) {
+
+	objectID, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, errors.New(
+			"invalid teacher id",
+		)
+	}
+
+	return s.teacherRepo.GetByIDAndCollegeID(
+		ctx,
+		objectID,
+		collegeID,
+	)
+}
+
+func (s *TeacherService) UpdateByCollegeID(
+	ctx context.Context,
+	id string,
+	collegeID bson.ObjectID,
+	teacher teacherModel.Teacher,
+) error {
+
+	objectID, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		return errors.New("invalid teacher id")
+	}
+
+	teacher.Name = strings.TrimSpace(teacher.Name)
+	teacher.Gender = strings.TrimSpace(teacher.Gender)
+	teacher.Email = strings.TrimSpace(teacher.Email)
+	teacher.Phone = strings.TrimSpace(teacher.Phone)
+	teacher.Subject = strings.TrimSpace(teacher.Subject)
+
+	if teacher.Name == "" {
+		return errors.New("teacher name is required")
+	}
+
+	if teacher.Age <= 0 {
+		return errors.New("teacher age must be greater than 0")
+	}
+
+	if teacher.Gender == "" {
+		return errors.New("teacher gender is required")
+	}
+
+	if teacher.Email == "" {
+		return errors.New("teacher email is required")
+	}
+
+	if teacher.Phone == "" {
+		return errors.New("teacher phone is required")
+	}
+
+	if teacher.Subject == "" {
+		return errors.New("teacher subject is required")
+	}
+
+	return s.teacherRepo.UpdateByIDAndCollegeID(
+		ctx,
+		objectID,
+		collegeID,
+		teacher,
+	)
+}
+
+func (s *TeacherService) DeleteByCollegeID(
+	ctx context.Context,
+	id string,
+	collegeID bson.ObjectID,
+) error {
+
+	objectID, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		return errors.New("invalid teacher id")
+	}
+
+	return s.teacherRepo.DeleteByIDAndCollegeID(
+		ctx,
+		objectID,
+		collegeID,
+	)
+}
+
+func (s *TeacherService) UpdateStatusByCollegeID(
+	ctx context.Context,
+	id string,
+	collegeID bson.ObjectID,
+	status string,
+) error {
+
+	objectID, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		return errors.New("invalid teacher id")
+	}
+
+	status = strings.ToLower(
+		strings.TrimSpace(status),
+	)
+
+	if status != "active" && status != "left" {
+		return errors.New(
+			"status must be active or left",
+		)
+	}
+
+	return s.teacherRepo.UpdateStatusByIDAndCollegeID(
+		ctx,
+		objectID,
+		collegeID,
+		status,
 	)
 }

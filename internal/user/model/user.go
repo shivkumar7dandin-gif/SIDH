@@ -7,5 +7,10 @@ type User struct {
 	Username     string        `json:"username" bson:"username"`
 	PasswordHash string        `json:"-" bson:"password_hash"`
 	Role         string        `json:"role" bson:"role"`
-	ReferenceID  bson.ObjectID `json:"reference_id" bson:"reference_id"`
+
+	// Points to college / teacher / student record depending on role
+	ReferenceID bson.ObjectID `json:"reference_id" bson:"reference_id"`
+
+	// Always points to the school/college
+	CollegeID bson.ObjectID `json:"college_id" bson:"college_id"`
 }

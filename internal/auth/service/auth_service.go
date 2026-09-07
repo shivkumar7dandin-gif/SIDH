@@ -18,6 +18,7 @@ type AuthService struct {
 type Claims struct {
 	UserID      string `json:"user_id"`
 	ReferenceID string `json:"reference_id"`
+	CollegeID   string `json:"college_id"`
 	Username    string `json:"username"`
 	Role        string `json:"role"`
 
@@ -67,6 +68,7 @@ func (s *AuthService) Login(
 	claims := Claims{
 		UserID:      user.ID.Hex(),
 		ReferenceID: user.ReferenceID.Hex(),
+		CollegeID:   user.CollegeID.Hex(),
 		Username:    user.Username,
 		Role:        user.Role,
 
@@ -82,7 +84,6 @@ func (s *AuthService) Login(
 			),
 		},
 	}
-
 	// Create JWT token
 	token := jwt.NewWithClaims(
 		jwt.SigningMethodHS256,

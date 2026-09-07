@@ -14,6 +14,10 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 
+		// ---------------------------------
+		// GET AUTHORIZATION HEADER
+		// ---------------------------------
+
 		authHeader := c.GetHeader("Authorization")
 
 		if authHeader == "" {
@@ -23,9 +27,14 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 					"error": "authorization header is required",
 				},
 			)
+
 			c.Abort()
 			return
 		}
+
+		// ---------------------------------
+		// CHECK "Bearer <token>"
+		// ---------------------------------
 
 		parts := strings.SplitN(
 			authHeader,
@@ -34,7 +43,10 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		)
 
 		if len(parts) != 2 ||
-			!strings.EqualFold(parts[0], "Bearer") {
+			!strings.EqualFold(
+				parts[0],
+				"Bearer",
+			) {
 
 			c.JSON(
 				http.StatusUnauthorized,
@@ -42,18 +54,44 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 					"error": "invalid authorization header",
 				},
 			)
+
 			c.Abort()
 			return
 		}
 
-		tokenString := parts[1]
+		tokenString := strings.TrimSpace(
+			parts[1],
+		)
+
+		if tokenString == "" {
+			c.JSON(
+				http.StatusUnauthorized,
+				gin.H{
+					"error": "token is required",
+				},
+			)
+
+			c.Abort()
+			return
+		}
+
+		// ---------------------------------
+		// CREATE CLAIMS OBJECT
+		// ---------------------------------
 
 		claims := &authService.Claims{}
+
+		// ---------------------------------
+		// PARSE AND VALIDATE JWT
+		// ---------------------------------
 
 		token, err := jwt.ParseWithClaims(
 			tokenString,
 			claims,
-			func(token *jwt.Token) (interface{}, error) {
+			func(token *jwt.Token) (
+				interface{},
+				error,
+			) {
 				return []byte(jwtSecret), nil
 			},
 			jwt.WithValidMethods(
@@ -63,20 +101,43 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 			),
 		)
 
-		if err != nil || !token.Valid {
+		if err != nil ||
+			token == nil ||
+			!token.Valid {
+
 			c.JSON(
 				http.StatusUnauthorized,
 				gin.H{
 					"error": "invalid or expired token",
 				},
 			)
+
 			c.Abort()
 			return
 		}
 
-		// =========================
-		// STORE JWT DATA IN CONTEXT
-		// =========================
+		// ---------------------------------
+		// VALIDATE REQUIRED CLAIMS
+		// ---------------------------------
+
+		if claims.UserID == "" ||
+			claims.Username == "" ||
+			claims.Role == "" {
+
+			c.JSON(
+				http.StatusUnauthorized,
+				gin.H{
+					"error": "invalid token claims",
+				},
+			)
+
+			c.Abort()
+			return
+		}
+
+		// ---------------------------------
+		// STORE JWT DATA IN GIN CONTEXT
+		// ---------------------------------
 
 		c.Set(
 			"user_id",
@@ -89,6 +150,11 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		)
 
 		c.Set(
+			"college_id",
+			claims.CollegeID,
+		)
+
+		c.Set(
 			"username",
 			claims.Username,
 		)
@@ -97,6 +163,10 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 			"role",
 			claims.Role,
 		)
+
+		// ---------------------------------
+		// CONTINUE TO NEXT HANDLER
+		// ---------------------------------
 
 		c.Next()
 	}

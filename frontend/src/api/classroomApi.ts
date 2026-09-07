@@ -16,46 +16,86 @@ export type CreateClassroomData = {
   capacity: number;
 };
 
+// ------------------------------------------------
 // GET CLASSROOMS
-export const getClassrooms = async () => {
+// ------------------------------------------------
+
+export const getClassrooms = async (): Promise<Classroom[]> => {
   const token = localStorage.getItem("token");
 
-  const response = await axios.get(`${API_URL}/classrooms`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
+  const response = await axios.get<Classroom[]>(
+    `${API_URL}/classrooms`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  });
+  );
 
   return response.data;
 };
 
+// ------------------------------------------------
 // CREATE CLASSROOM
-export const createClassroom = async (classroomData: CreateClassroomData) => {
+// ------------------------------------------------
+
+export const createClassroom = async (
+  classroomData: CreateClassroomData,
+): Promise<Classroom> => {
   const token = localStorage.getItem("token");
 
-  const response = await axios.post(`${API_URL}/classrooms`, classroomData, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+  const response = await axios.post<Classroom>(
+    `${API_URL}/classrooms`,
+    classroomData,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
     },
-  });
+  );
 
   return response.data;
 };
+
+// ------------------------------------------------
+// UPDATE CLASSROOM
+// ------------------------------------------------
 
 export const updateClassroom = async (
   id: string,
   classroomData: CreateClassroomData,
-) => {
+): Promise<Classroom> => {
   const token = localStorage.getItem("token");
 
-  const response = await axios.put(
+  const response = await axios.put<Classroom>(
     `${API_URL}/classrooms/${id}`,
     classroomData,
     {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+      },
+    },
+  );
+
+  return response.data;
+};
+
+// ------------------------------------------------
+// DELETE CLASSROOM
+// ------------------------------------------------
+
+export const deleteClassroom = async (
+  id: string,
+) => {
+  const token = localStorage.getItem("token");
+
+  const response = await axios.delete(
+    `${API_URL}/classrooms/${id}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
       },
     },
   );

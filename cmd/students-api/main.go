@@ -198,6 +198,7 @@ func main() {
 			"GET",
 			"POST",
 			"PUT",
+			"PATCH",
 			"DELETE",
 			"OPTIONS",
 		},
@@ -359,6 +360,11 @@ func main() {
 		teachersAdmin.PUT(
 			"/:id",
 			teacherH.Update,
+		)
+
+		teachersAdmin.PATCH(
+			"/:id/status",
+			teacherH.UpdateStatus,
 		)
 
 		teachersAdmin.DELETE(

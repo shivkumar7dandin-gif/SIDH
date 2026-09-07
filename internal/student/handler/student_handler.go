@@ -45,26 +45,46 @@ func NewStudentHandler(
 
 func (h *StudentHandler) Create(c *gin.Context) {
 
+	// -------------------------------------------------
+	// Get college_id from JWT
+	// -------------------------------------------------
+
+	collegeID, ok := getStudentCollegeID(c)
+	if !ok {
+		return
+	}
+
+	// -------------------------------------------------
+	// Read request body
+	// -------------------------------------------------
+
 	body, err := io.ReadAll(c.Request.Body)
+
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "failed to read request body",
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "failed to read request body",
+			},
+		)
 		return
 	}
 
 	body = bytes.TrimSpace(body)
 
 	if len(body) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "request body cannot be empty",
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "request body cannot be empty",
+			},
+		)
 		return
 	}
 
-	// =====================================================
+	// =================================================
 	// SINGLE STUDENT
-	// =====================================================
+	// =================================================
 
 	if body[0] == '{' {
 
@@ -75,42 +95,56 @@ func (h *StudentHandler) Create(c *gin.Context) {
 			&req,
 		); err != nil {
 
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
+			c.JSON(
+				http.StatusBadRequest,
+				gin.H{
+					"error": err.Error(),
+				},
+			)
 			return
 		}
 
 		if err := validateCreateStudent(req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
+
+			c.JSON(
+				http.StatusBadRequest,
+				gin.H{
+					"error": err.Error(),
+				},
+			)
 			return
 		}
 
 		createdStudent, err := h.service.Create(
 			c.Request.Context(),
 			req,
+			collegeID,
 		)
 
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
+			c.JSON(
+				http.StatusBadRequest,
+				gin.H{
+					"error": err.Error(),
+				},
+			)
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
-			"message": "student created successfully",
-			"student": createdStudent,
-		})
+		c.JSON(
+			http.StatusCreated,
+			gin.H{
+				"message": "student created successfully",
+				"student": createdStudent,
+			},
+		)
 
 		return
 	}
 
-	// =====================================================
+	// =================================================
 	// BULK STUDENTS
-	// =====================================================
+	// =================================================
 
 	if body[0] == '[' {
 
@@ -121,16 +155,22 @@ func (h *StudentHandler) Create(c *gin.Context) {
 			&requests,
 		); err != nil {
 
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
+			c.JSON(
+				http.StatusBadRequest,
+				gin.H{
+					"error": err.Error(),
+				},
+			)
 			return
 		}
 
 		if len(requests) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "student list cannot be empty",
-			})
+			c.JSON(
+				http.StatusBadRequest,
+				gin.H{
+					"error": "student list cannot be empty",
+				},
+			)
 			return
 		}
 
@@ -143,29 +183,37 @@ func (h *StudentHandler) Create(c *gin.Context) {
 		for index, req := range requests {
 
 			if err := validateCreateStudent(req); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error": fmt.Sprintf(
-						"student at index %d: %s",
-						index,
-						err.Error(),
-					),
-				})
+
+				c.JSON(
+					http.StatusBadRequest,
+					gin.H{
+						"error": fmt.Sprintf(
+							"student at index %d: %s",
+							index,
+							err.Error(),
+						),
+					},
+				)
 				return
 			}
 
 			createdStudent, err := h.service.Create(
 				c.Request.Context(),
 				req,
+				collegeID,
 			)
 
 			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error": fmt.Sprintf(
-						"student at index %d: %s",
-						index,
-						err.Error(),
-					),
-				})
+				c.JSON(
+					http.StatusBadRequest,
+					gin.H{
+						"error": fmt.Sprintf(
+							"student at index %d: %s",
+							index,
+							err.Error(),
+						),
+					},
+				)
 				return
 			}
 
@@ -175,17 +223,23 @@ func (h *StudentHandler) Create(c *gin.Context) {
 			)
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
-			"message":  "students created successfully",
-			"students": createdStudents,
-		})
+		c.JSON(
+			http.StatusCreated,
+			gin.H{
+				"message":  "students created successfully",
+				"students": createdStudents,
+			},
+		)
 
 		return
 	}
 
-	c.JSON(http.StatusBadRequest, gin.H{
-		"error": "request body must be a student object or an array of students",
-	})
+	c.JSON(
+		http.StatusBadRequest,
+		gin.H{
+			"error": "request body must be a student object or an array of students",
+		},
+	)
 }
 
 // =====================================================
@@ -267,29 +321,36 @@ func validateStudent(
 
 func (h *StudentHandler) GetAll(c *gin.Context) {
 
-	referenceIDValue, exists := c.Get("reference_id")
+	// Get college_id from JWT context
+	collegeIDValue, exists := c.Get("college_id")
+
 	if !exists {
 		c.JSON(
 			http.StatusUnauthorized,
 			gin.H{
-				"error": "college reference id not found",
+				"error": "college id not found",
 			},
 		)
 		return
 	}
 
-	referenceID, ok := referenceIDValue.(string)
-	if !ok {
+	collegeIDString, ok := collegeIDValue.(string)
+
+	if !ok || collegeIDString == "" {
 		c.JSON(
 			http.StatusUnauthorized,
 			gin.H{
-				"error": "invalid college reference id",
+				"error": "invalid college id",
 			},
 		)
 		return
 	}
 
-	collegeID, err := bson.ObjectIDFromHex(referenceID)
+	// Convert string to ObjectID
+	collegeID, err := bson.ObjectIDFromHex(
+		collegeIDString,
+	)
+
 	if err != nil {
 		c.JSON(
 			http.StatusBadRequest,
@@ -300,6 +361,7 @@ func (h *StudentHandler) GetAll(c *gin.Context) {
 		return
 	}
 
+	// Get only students belonging to this school
 	students, err := h.service.GetByCollegeID(
 		c.Request.Context(),
 		collegeID,
@@ -328,26 +390,70 @@ func (h *StudentHandler) GetAll(c *gin.Context) {
 
 func (h *StudentHandler) GetByID(c *gin.Context) {
 
+	// Student ID from URL
 	id, err := bson.ObjectIDFromHex(
 		c.Param("id"),
 	)
-
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid student id",
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid student id",
+			},
+		)
 		return
 	}
 
-	student, err := h.service.GetByID(
+	// College ID from JWT
+	collegeIDValue, exists := c.Get("college_id")
+	if !exists {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "college id not found",
+			},
+		)
+		return
+	}
+
+	collegeIDString, ok := collegeIDValue.(string)
+	if !ok || collegeIDString == "" {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
+		return
+	}
+
+	collegeID, err := bson.ObjectIDFromHex(
+		collegeIDString,
+	)
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
+		return
+	}
+
+	// Fetch only if student belongs to logged-in school
+	student, err := h.service.GetByIDAndCollegeID(
 		c.Request.Context(),
 		id,
+		collegeID,
 	)
 
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "student not found",
-		})
+		c.JSON(
+			http.StatusNotFound,
+			gin.H{
+				"error": "student not found",
+			},
+		)
 		return
 	}
 
@@ -364,16 +470,69 @@ func (h *StudentHandler) GetByID(c *gin.Context) {
 
 func (h *StudentHandler) Update(c *gin.Context) {
 
+	// ------------------------------------------------
+	// 1. Get student ID from URL
+	// ------------------------------------------------
+
 	id, err := bson.ObjectIDFromHex(
 		c.Param("id"),
 	)
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid student id",
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid student id",
+			},
+		)
 		return
 	}
+
+	// ------------------------------------------------
+	// 2. Get college_id from JWT
+	// ------------------------------------------------
+
+	collegeIDValue, exists := c.Get("college_id")
+
+	if !exists {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "college id not found",
+			},
+		)
+		return
+	}
+
+	collegeIDString, ok := collegeIDValue.(string)
+
+	if !ok || collegeIDString == "" {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
+		return
+	}
+
+	collegeID, err := bson.ObjectIDFromHex(
+		collegeIDString,
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
+		return
+	}
+
+	// ------------------------------------------------
+	// 3. Read request body
+	// ------------------------------------------------
 
 	var student studentModel.Student
 
@@ -381,35 +540,61 @@ func (h *StudentHandler) Update(c *gin.Context) {
 		&student,
 	); err != nil {
 
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
 		return
 	}
+
+	// ------------------------------------------------
+	// 4. Validate student
+	// ------------------------------------------------
 
 	if err := validateStudent(student); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
 		return
 	}
 
-	err = h.service.Update(
+	// ------------------------------------------------
+	// 5. Update only student belonging to this college
+	// ------------------------------------------------
+
+	err = h.service.UpdateByCollegeID(
 		c.Request.Context(),
 		id,
+		collegeID,
 		student,
 	)
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "student updated successfully",
-	})
+	// ------------------------------------------------
+	// 6. Success response
+	// ------------------------------------------------
+
+	c.JSON(
+		http.StatusOK,
+		gin.H{
+			"message": "student updated successfully",
+		},
+	)
 }
 
 // =====================================================
@@ -419,32 +604,85 @@ func (h *StudentHandler) Update(c *gin.Context) {
 
 func (h *StudentHandler) Delete(c *gin.Context) {
 
+	// 1. Get student ID
 	id, err := bson.ObjectIDFromHex(
 		c.Param("id"),
 	)
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid student id",
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid student id",
+			},
+		)
 		return
 	}
 
-	err = h.service.Delete(
-		c.Request.Context(),
-		id,
+	// 2. Get college_id from JWT
+	collegeIDValue, exists := c.Get("college_id")
+
+	if !exists {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "college id not found",
+			},
+		)
+		return
+	}
+
+	collegeIDString, ok := collegeIDValue.(string)
+
+	if !ok || collegeIDString == "" {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
+		return
+	}
+
+	// 3. Convert college ID
+	collegeID, err := bson.ObjectIDFromHex(
+		collegeIDString,
 	)
 
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "student not found",
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "student deleted successfully",
-	})
+	// 4. Delete only from logged-in school
+	err = h.service.DeleteByCollegeID(
+		c.Request.Context(),
+		id,
+		collegeID,
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusNotFound,
+			gin.H{
+				"error": "student not found",
+			},
+		)
+		return
+	}
+
+	// 5. Success
+	c.JSON(
+		http.StatusOK,
+		gin.H{
+			"message": "student deleted successfully",
+		},
+	)
 }
 
 // =====================================================
@@ -565,4 +803,52 @@ func (h *StudentHandler) GetMe(c *gin.Context) {
 		"attendance_summary": attendanceSummary,
 		"assessments":        assessments,
 	})
+}
+
+func getStudentCollegeID(
+	c *gin.Context,
+) (bson.ObjectID, bool) {
+
+	collegeIDValue, exists := c.Get("college_id")
+
+	if !exists {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "college_id not found",
+			},
+		)
+
+		return bson.ObjectID{}, false
+	}
+
+	collegeIDString, ok := collegeIDValue.(string)
+
+	if !ok || collegeIDString == "" {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "invalid college_id",
+			},
+		)
+
+		return bson.ObjectID{}, false
+	}
+
+	collegeID, err := bson.ObjectIDFromHex(
+		collegeIDString,
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
+
+		return bson.ObjectID{}, false
+	}
+
+	return collegeID, true
 }

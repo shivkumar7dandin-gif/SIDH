@@ -12,6 +12,8 @@ export type Teacher = {
   phone: string;
   subject: string;
   username: string;
+  status: string;
+
 };
 
 export type CreateTeacherData = {
@@ -118,6 +120,30 @@ export const deleteTeacher = async (id: string) => {
     {
       headers: {
         Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return response.data;
+};
+
+
+
+export const updateTeacherStatus = async (
+  id: string,
+  status: "active" | "left",
+) => {
+  const token = localStorage.getItem("token");
+
+  const response = await axios.patch(
+    `${API_URL}/teachers/${id}/status`,
+    {
+      status,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
     },
   );

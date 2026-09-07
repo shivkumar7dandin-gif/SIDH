@@ -12,6 +12,7 @@ type Teacher struct {
 	Phone     string        `json:"phone" bson:"phone"`
 	Subject   string        `json:"subject" bson:"subject"`
 	Username  string        `json:"username" bson:"username"`
+	Status    string        `json:"status" bson:"status"`
 }
 
 type CreateTeacherRequest struct {

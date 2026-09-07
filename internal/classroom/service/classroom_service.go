@@ -23,6 +23,10 @@ func NewClassroomService(
 	}
 }
 
+// =====================================================
+// CREATE CLASSROOM
+// =====================================================
+
 func (s *ClassroomService) Create(
 	ctx context.Context,
 	req model.CreateClassroomRequest,
@@ -60,7 +64,10 @@ func (s *ClassroomService) Create(
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(
+			"failed to check classroom: %w",
+			err,
+		)
 	}
 
 	if exists {
@@ -78,45 +85,119 @@ func (s *ClassroomService) Create(
 		Capacity:  req.Capacity,
 	}
 
-	return s.repository.Create(ctx, classroom)
+	return s.repository.Create(
+		ctx,
+		classroom,
+	)
 }
 
-func (s *ClassroomService) GetAll(
-	ctx context.Context,
-) ([]model.Classroom, error) {
-
-	return s.repository.GetAll(ctx)
-}
+// =====================================================
+// GET ALL CLASSROOMS BY COLLEGE
+// TENANT SAFE
+// =====================================================
 
 func (s *ClassroomService) GetByCollegeID(
 	ctx context.Context,
 	collegeID bson.ObjectID,
 ) ([]model.Classroom, error) {
 
-	return s.repository.GetByCollegeID(ctx, collegeID)
+	return s.repository.GetByCollegeID(
+		ctx,
+		collegeID,
+	)
 }
 
-func (s *ClassroomService) GetByID(
+// =====================================================
+// GET CLASSROOM BY ID + COLLEGE ID
+// TENANT SAFE
+// =====================================================
+
+func (s *ClassroomService) GetByIDAndCollegeID(
 	ctx context.Context,
 	id bson.ObjectID,
+	collegeID bson.ObjectID,
 ) (*model.Classroom, error) {
 
-	return s.repository.GetByID(ctx, id)
+	return s.repository.GetByIDAndCollegeID(
+		ctx,
+		id,
+		collegeID,
+	)
 }
 
-func (s *ClassroomService) Update(
+// =====================================================
+// UPDATE CLASSROOM
+// TENANT SAFE
+// =====================================================
+
+func (s *ClassroomService) UpdateByCollegeID(
 	ctx context.Context,
 	id bson.ObjectID,
+	collegeID bson.ObjectID,
 	classroom model.Classroom,
 ) error {
 
-	return s.repository.Update(ctx, id, classroom)
+	classroom.Name = strings.TrimSpace(
+		classroom.Name,
+	)
+
+	classroom.Section = strings.TrimSpace(
+		classroom.Section,
+	)
+
+	if classroom.Name == "" {
+		return fmt.Errorf("class name is required")
+	}
+
+	if classroom.Section == "" {
+		return fmt.Errorf("section is required")
+	}
+
+	if classroom.Capacity <= 0 {
+		return fmt.Errorf(
+			"classroom capacity must be greater than 0",
+		)
+	}
+
+	if classroom.Capacity > 60 {
+		return fmt.Errorf(
+			"classroom capacity cannot be more than 60 students",
+		)
+	}
+
+	// Check classroom belongs to this college
+	_, err := s.repository.GetByIDAndCollegeID(
+		ctx,
+		id,
+		collegeID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("classroom not found")
+	}
+
+	return s.repository.UpdateByIDAndCollegeID(
+		ctx,
+		id,
+		collegeID,
+		classroom,
+	)
 }
 
-func (s *ClassroomService) Delete(
+// =====================================================
+// DELETE CLASSROOM
+// TENANT SAFE
+// =====================================================
+
+func (s *ClassroomService) DeleteByCollegeID(
 	ctx context.Context,
 	id bson.ObjectID,
+	collegeID bson.ObjectID,
 ) error {
 
-	return s.repository.Delete(ctx, id)
+	return s.repository.DeleteByIDAndCollegeID(
+		ctx,
+		id,
+		collegeID,
+	)
 }

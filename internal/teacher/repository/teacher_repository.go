@@ -178,3 +178,153 @@ func (r *TeacherRepository) GetByCollegeID(
 
 	return teachers, nil
 }
+
+func (r *TeacherRepository) UpdateStatus(
+	ctx context.Context,
+	id bson.ObjectID,
+	status string,
+) error {
+
+	filter := bson.M{
+		"_id": id,
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"status": status,
+		},
+	}
+
+	result, err := r.collection.UpdateOne(
+		ctx,
+		filter,
+		update,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+
+	return nil
+}
+
+func (r *TeacherRepository) GetByIDAndCollegeID(
+	ctx context.Context,
+	id bson.ObjectID,
+	collegeID bson.ObjectID,
+) (*model.Teacher, error) {
+
+	var teacher model.Teacher
+
+	err := r.collection.FindOne(
+		ctx,
+		bson.M{
+			"_id":        id,
+			"college_id": collegeID,
+		},
+	).Decode(&teacher)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &teacher, nil
+}
+
+func (r *TeacherRepository) UpdateByIDAndCollegeID(
+	ctx context.Context,
+	id bson.ObjectID,
+	collegeID bson.ObjectID,
+	teacher model.Teacher,
+) error {
+
+	update := bson.M{
+		"$set": bson.M{
+			"name":    teacher.Name,
+			"age":     teacher.Age,
+			"gender":  teacher.Gender,
+			"email":   teacher.Email,
+			"phone":   teacher.Phone,
+			"subject": teacher.Subject,
+		},
+	}
+
+	result, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{
+			"_id":        id,
+			"college_id": collegeID,
+		},
+		update,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+
+	return nil
+}
+
+func (r *TeacherRepository) DeleteByIDAndCollegeID(
+	ctx context.Context,
+	id bson.ObjectID,
+	collegeID bson.ObjectID,
+) error {
+
+	result, err := r.collection.DeleteOne(
+		ctx,
+		bson.M{
+			"_id":        id,
+			"college_id": collegeID,
+		},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if result.DeletedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+
+	return nil
+}
+
+func (r *TeacherRepository) UpdateStatusByIDAndCollegeID(
+	ctx context.Context,
+	id bson.ObjectID,
+	collegeID bson.ObjectID,
+	status string,
+) error {
+
+	result, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{
+			"_id":        id,
+			"college_id": collegeID,
+		},
+		bson.M{
+			"$set": bson.M{
+				"status": status,
+			},
+		},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+
+	return nil
+}

@@ -247,3 +247,89 @@ func (r *StudentRepository) ExistsByClassroomAndRollNumberExceptID(
 
 	return count > 0, nil
 }
+
+func (r *StudentRepository) GetByIDAndCollegeID(
+	ctx context.Context,
+	id bson.ObjectID,
+	collegeID bson.ObjectID,
+) (*model.Student, error) {
+
+	var student model.Student
+
+	err := r.collection.FindOne(
+		ctx,
+		bson.M{
+			"_id":        id,
+			"college_id": collegeID,
+		},
+	).Decode(&student)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &student, nil
+}
+
+func (r *StudentRepository) UpdateByIDAndCollegeID(
+	ctx context.Context,
+	id bson.ObjectID,
+	collegeID bson.ObjectID,
+	student model.Student,
+) error {
+
+	update := bson.M{
+		"$set": bson.M{
+			"name":         student.Name,
+			"roll_number":  student.RollNumber,
+			"age":          student.Age,
+			"gender":       student.Gender,
+			"classroom_id": student.ClassroomID,
+			"address":      student.Address,
+		},
+	}
+
+	result, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{
+			"_id":        id,
+			"college_id": collegeID,
+		},
+		update,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+
+	return nil
+}
+
+func (r *StudentRepository) DeleteByIDAndCollegeID(
+	ctx context.Context,
+	id bson.ObjectID,
+	collegeID bson.ObjectID,
+) error {
+
+	result, err := r.collection.DeleteOne(
+		ctx,
+		bson.M{
+			"_id":        id,
+			"college_id": collegeID,
+		},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if result.DeletedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+
+	return nil
+}

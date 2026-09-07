@@ -35,10 +35,10 @@ func NewStudentService(
 	}
 }
 
-// Create student
 func (s *StudentService) Create(
 	ctx context.Context,
 	req studentModel.CreateStudentRequest,
+	collegeID bson.ObjectID,
 ) (*studentModel.Student, error) {
 
 	req.Name = strings.TrimSpace(req.Name)
@@ -64,7 +64,9 @@ func (s *StudentService) Create(
 	}
 
 	if req.ClassroomID == "" {
-		return nil, errors.New("classroom_id is required")
+		return nil, errors.New(
+			"classroom_id is required",
+		)
 	}
 
 	if req.RollNumber <= 0 {
@@ -116,17 +118,19 @@ func (s *StudentService) Create(
 	}
 
 	// ------------------------------------------------
-	// 4. Check classroom exists
+	// 4. Check classroom belongs to logged-in college
 	// ------------------------------------------------
 
-	classroom, err := s.classroomRepo.GetByID(
-		ctx,
-		classroomObjectID,
-	)
+	classroom, err :=
+		s.classroomRepo.GetByIDAndCollegeID(
+			ctx,
+			classroomObjectID,
+			collegeID,
+		)
 
 	if err != nil {
 		return nil, errors.New(
-			"classroom not found",
+			"classroom not found or does not belong to your school",
 		)
 	}
 
@@ -137,7 +141,7 @@ func (s *StudentService) Create(
 	duplicateStudent, err :=
 		s.studentRepo.ExistsByClassroomAndRollNumber(
 			ctx,
-			classroom.CollegeID,
+			collegeID,
 			req.ClassroomID,
 			req.RollNumber,
 		)
@@ -191,7 +195,7 @@ func (s *StudentService) Create(
 	// ------------------------------------------------
 
 	student := studentModel.Student{
-		CollegeID:   classroom.CollegeID,
+		CollegeID:   collegeID,
 		Name:        req.Name,
 		Age:         req.Age,
 		RollNumber:  req.RollNumber,
@@ -241,6 +245,7 @@ func (s *StudentService) Create(
 		PasswordHash: string(passwordHash),
 		Role:         "student",
 		ReferenceID:  createdStudent.ID,
+		CollegeID:    collegeID,
 	}
 
 	if err := s.userRepo.Create(
@@ -436,6 +441,129 @@ func (s *StudentService) GetByCollegeID(
 
 	return s.studentRepo.GetByCollegeID(
 		ctx,
+		collegeID,
+	)
+}
+
+func (s *StudentService) GetByIDAndCollegeID(
+	ctx context.Context,
+	id bson.ObjectID,
+	collegeID bson.ObjectID,
+) (*studentModel.Student, error) {
+
+	return s.studentRepo.GetByIDAndCollegeID(
+		ctx,
+		id,
+		collegeID,
+	)
+}
+
+func (s *StudentService) UpdateByCollegeID(
+	ctx context.Context,
+	id bson.ObjectID,
+	collegeID bson.ObjectID,
+	student studentModel.Student,
+) error {
+
+	existingStudent, err := s.studentRepo.GetByIDAndCollegeID(
+		ctx,
+		id,
+		collegeID,
+	)
+	if err != nil {
+		return errors.New("student not found")
+	}
+
+	classroomObjectID, err := bson.ObjectIDFromHex(
+		student.ClassroomID,
+	)
+	if err != nil {
+		return errors.New("invalid classroom_id")
+	}
+
+	classroom, err := s.classroomRepo.GetByID(
+		ctx,
+		classroomObjectID,
+	)
+	if err != nil {
+		return errors.New("classroom not found")
+	}
+
+	// Very important:
+	// selected classroom must belong to same school
+	if classroom.CollegeID != collegeID {
+		return errors.New(
+			"classroom does not belong to your school",
+		)
+	}
+
+	exists, err :=
+		s.studentRepo.ExistsByClassroomAndRollNumberExceptID(
+			ctx,
+			collegeID,
+			student.ClassroomID,
+			student.RollNumber,
+			id,
+		)
+
+	if err != nil {
+		return fmt.Errorf(
+			"failed to check duplicate student: %w",
+			err,
+		)
+	}
+
+	if exists {
+		return fmt.Errorf(
+			"roll number %d already exists in %s - Section %s",
+			student.RollNumber,
+			classroom.Name,
+			classroom.Section,
+		)
+	}
+
+	if existingStudent.ClassroomID != student.ClassroomID {
+
+		count, err := s.studentRepo.CountByClassroom(
+			ctx,
+			student.ClassroomID,
+		)
+
+		if err != nil {
+			return fmt.Errorf(
+				"failed to check classroom capacity: %w",
+				err,
+			)
+		}
+
+		if count >= int64(classroom.Capacity) {
+			return fmt.Errorf(
+				"%s - Section %s is full",
+				classroom.Name,
+				classroom.Section,
+			)
+		}
+	}
+
+	student.CollegeID = collegeID
+
+	return s.studentRepo.UpdateByIDAndCollegeID(
+		ctx,
+		id,
+		collegeID,
+		student,
+	)
+}
+
+func (s *StudentService) DeleteByCollegeID(
+	ctx context.Context,
+	id bson.ObjectID,
+	collegeID bson.ObjectID,
+) error {
+
+	return s.studentRepo.DeleteByIDAndCollegeID(
+		ctx,
+		id,
 		collegeID,
 	)
 }

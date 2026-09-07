@@ -22,38 +22,26 @@ func NewClassroomHandler(
 	}
 }
 
+// =====================================================
+// CREATE CLASSROOM
+// =====================================================
+
 func (h *ClassroomHandler) Create(c *gin.Context) {
 
 	var req model.CreateClassroomRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
 		return
 	}
 
-	referenceIDValue, exists := c.Get("reference_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "college reference id not found",
-		})
-		return
-	}
-
-	collegeIDString, ok := referenceIDValue.(string)
-	if !ok || collegeIDString == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "invalid college reference id",
-		})
-		return
-	}
-
-	collegeID, err := bson.ObjectIDFromHex(collegeIDString)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid college id",
-		})
+	collegeID, ok := getCollegeID(c)
+	if !ok {
 		return
 	}
 
@@ -64,38 +52,29 @@ func (h *ClassroomHandler) Create(c *gin.Context) {
 	)
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
 		return
 	}
 
-	c.JSON(http.StatusCreated, classroom)
+	c.JSON(
+		http.StatusCreated,
+		classroom,
+	)
 }
+
+// =====================================================
+// GET ALL CLASSROOMS
+// =====================================================
 
 func (h *ClassroomHandler) GetAll(c *gin.Context) {
 
-	referenceIDValue, exists := c.Get("reference_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "college reference id not found",
-		})
-		return
-	}
-
-	collegeIDString, ok := referenceIDValue.(string)
-	if !ok || collegeIDString == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "invalid college reference id",
-		})
-		return
-	}
-
-	collegeID, err := bson.ObjectIDFromHex(collegeIDString)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid college id",
-		})
+	collegeID, ok := getCollegeID(c)
+	if !ok {
 		return
 	}
 
@@ -105,96 +84,227 @@ func (h *ClassroomHandler) GetAll(c *gin.Context) {
 	)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		c.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
 		return
 	}
 
-	c.JSON(http.StatusOK, classrooms)
+	c.JSON(
+		http.StatusOK,
+		classrooms,
+	)
 }
+
+// =====================================================
+// GET CLASSROOM BY ID
+// =====================================================
 
 func (h *ClassroomHandler) GetByID(c *gin.Context) {
 
-	id, err := bson.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid classroom id",
-		})
-		return
-	}
-
-	classroom, err := h.service.GetByID(
-		c.Request.Context(),
-		id,
+	id, err := bson.ObjectIDFromHex(
+		c.Param("id"),
 	)
 
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "classroom not found",
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid classroom id",
+			},
+		)
 		return
 	}
 
-	c.JSON(http.StatusOK, classroom)
+	collegeID, ok := getCollegeID(c)
+	if !ok {
+		return
+	}
+
+	classroom, err := h.service.GetByIDAndCollegeID(
+		c.Request.Context(),
+		id,
+		collegeID,
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusNotFound,
+			gin.H{
+				"error": "classroom not found",
+			},
+		)
+		return
+	}
+
+	c.JSON(
+		http.StatusOK,
+		classroom,
+	)
 }
+
+// =====================================================
+// UPDATE CLASSROOM
+// =====================================================
 
 func (h *ClassroomHandler) Update(c *gin.Context) {
 
-	id, err := bson.ObjectIDFromHex(c.Param("id"))
+	id, err := bson.ObjectIDFromHex(
+		c.Param("id"),
+	)
+
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid classroom id",
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid classroom id",
+			},
+		)
 		return
 	}
 
 	var classroom model.Classroom
 
 	if err := c.ShouldBindJSON(&classroom); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
 		return
 	}
 
-	if err := h.service.Update(
+	collegeID, ok := getCollegeID(c)
+	if !ok {
+		return
+	}
+
+	err = h.service.UpdateByCollegeID(
 		c.Request.Context(),
 		id,
+		collegeID,
 		classroom,
-	); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "classroom updated successfully",
-	})
+	c.JSON(
+		http.StatusOK,
+		gin.H{
+			"message": "classroom updated successfully",
+		},
+	)
 }
+
+// =====================================================
+// DELETE CLASSROOM
+// =====================================================
 
 func (h *ClassroomHandler) Delete(c *gin.Context) {
 
-	id, err := bson.ObjectIDFromHex(c.Param("id"))
+	id, err := bson.ObjectIDFromHex(
+		c.Param("id"),
+	)
+
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid classroom id",
-		})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid classroom id",
+			},
+		)
 		return
 	}
 
-	if err := h.service.Delete(
+	collegeID, ok := getCollegeID(c)
+	if !ok {
+		return
+	}
+
+	err = h.service.DeleteByCollegeID(
 		c.Request.Context(),
 		id,
-	); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		collegeID,
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusNotFound,
+			gin.H{
+				"error": "classroom not found",
+			},
+		)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "classroom deleted successfully",
-	})
+	c.JSON(
+		http.StatusOK,
+		gin.H{
+			"message": "classroom deleted successfully",
+		},
+	)
+}
+
+// =====================================================
+// HELPER: GET COLLEGE ID FROM JWT CONTEXT
+// =====================================================
+
+func getCollegeID(
+	c *gin.Context,
+) (bson.ObjectID, bool) {
+
+	collegeIDValue, exists := c.Get("college_id")
+
+	if !exists {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "college_id not found",
+			},
+		)
+
+		return bson.ObjectID{}, false
+	}
+
+	collegeIDString, ok := collegeIDValue.(string)
+
+	if !ok || collegeIDString == "" {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "invalid college_id",
+			},
+		)
+
+		return bson.ObjectID{}, false
+	}
+
+	collegeID, err := bson.ObjectIDFromHex(
+		collegeIDString,
+	)
+
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid college id",
+			},
+		)
+
+		return bson.ObjectID{}, false
+	}
+
+	return collegeID, true
 }
