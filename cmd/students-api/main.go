@@ -8,6 +8,9 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
+	reportHandler "github.com/shivkumar7dandin-gif/students-api/internal/report/handler"
+	reportService "github.com/shivkumar7dandin-gif/students-api/internal/report/service"
+
 	assessmentHandler "github.com/shivkumar7dandin-gif/students-api/internal/assessment/handler"
 	assessmentRepository "github.com/shivkumar7dandin-gif/students-api/internal/assessment/repository"
 	assessmentService "github.com/shivkumar7dandin-gif/students-api/internal/assessment/service"
@@ -205,6 +208,16 @@ func main() {
 		studentSvc,
 		attendanceSvc,
 		assessmentSvc,
+	)
+
+	reportSvc := reportService.NewReportService(
+		studentSvc,
+		attendanceSvc,
+		assessmentSvc,
+	)
+
+	reportH := reportHandler.NewReportHandler(
+		reportSvc,
 	)
 
 	// =========================
@@ -568,6 +581,14 @@ func main() {
 		assessmentWrite.POST(
 			"",
 			assessmentH.Create,
+		)
+	}
+
+	reportRead := teacherAndAdmin.Group("/reports")
+	{
+		reportRead.GET(
+			"/student/:studentId/monthly",
+			reportH.GetMonthlyParentReport,
 		)
 	}
 

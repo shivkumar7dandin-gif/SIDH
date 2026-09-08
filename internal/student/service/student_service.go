@@ -81,6 +81,11 @@ func (s *StudentService) Create(
 		)
 	}
 
+	// Guardian validation
+	if err := validateGuardians(req.Guardians); err != nil {
+		return nil, err
+	}
+
 	// ------------------------------------------------
 	// 2. Check username already exists
 	// ------------------------------------------------
@@ -203,6 +208,7 @@ func (s *StudentService) Create(
 		Gender:      req.Gender,
 		ClassroomID: req.ClassroomID,
 		Address:     req.Address,
+		Guardians:   req.Guardians,
 	}
 
 	// ------------------------------------------------
@@ -564,4 +570,82 @@ func (s *StudentService) DeleteByCollegeID(
 		id,
 		collegeID,
 	)
+}
+
+func validateGuardians(guardians []studentModel.Guardian) error {
+
+	if len(guardians) == 0 {
+		return errors.New("at least one guardian is required")
+	}
+
+	primaryCount := 0
+	reportReceiverCount := 0
+
+	for i := range guardians {
+
+		guardians[i].Name = strings.TrimSpace(guardians[i].Name)
+		guardians[i].Relation = strings.TrimSpace(guardians[i].Relation)
+		guardians[i].Phone = strings.TrimSpace(guardians[i].Phone)
+		guardians[i].Email = strings.TrimSpace(guardians[i].Email)
+
+		if guardians[i].Name == "" {
+			return fmt.Errorf(
+				"guardian %d name is required",
+				i+1,
+			)
+		}
+
+		if guardians[i].Relation == "" {
+			return fmt.Errorf(
+				"guardian %d relation is required",
+				i+1,
+			)
+		}
+
+		switch strings.ToLower(guardians[i].Relation) {
+		case "father", "mother", "guardian", "other":
+		default:
+			return fmt.Errorf(
+				"guardian %d relation must be Father, Mother, Guardian or Other",
+				i+1,
+			)
+		}
+
+		if guardians[i].Phone == "" &&
+			guardians[i].Email == "" {
+
+			return fmt.Errorf(
+				"guardian %d must have phone or email",
+				i+1,
+			)
+		}
+
+		if guardians[i].Primary {
+			primaryCount++
+		}
+
+		if guardians[i].ReceiveReport {
+			reportReceiverCount++
+		}
+	}
+
+	if primaryCount == 0 {
+		return errors.New(
+			"one primary guardian is required",
+		)
+	}
+
+	if primaryCount > 1 {
+		return errors.New(
+			"only one guardian can be primary",
+		)
+	}
+
+	if reportReceiverCount == 0 {
+		return errors.New(
+			"at least one guardian must receive reports",
+		)
+	}
+
+	return nil
 }

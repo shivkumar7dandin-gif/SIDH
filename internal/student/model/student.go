@@ -11,6 +11,15 @@ type Address struct {
 	Pincode string `json:"pincode" bson:"pincode"`
 }
 
+type Guardian struct {
+	Name          string `json:"name" bson:"name"`
+	Relation      string `json:"relation" bson:"relation"`
+	Phone         string `json:"phone" bson:"phone"`
+	Email         string `json:"email" bson:"email"`
+	Primary       bool   `json:"primary" bson:"primary"`
+	ReceiveReport bool   `json:"receive_report" bson:"receive_report"`
+}
+
 type Student struct {
 	ID          bson.ObjectID `json:"id" bson:"_id,omitempty"`
 	CollegeID   bson.ObjectID `json:"college_id" bson:"college_id"`
@@ -20,4 +29,5 @@ type Student struct {
 	Gender      string        `json:"gender" bson:"gender"`
 	ClassroomID string        `json:"classroom_id" bson:"classroom_id"`
 	Address     Address       `json:"address" bson:"address"`
+	Guardians   []Guardian    `json:"guardians" bson:"guardians"`
 }
