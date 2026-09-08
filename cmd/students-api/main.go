@@ -192,6 +192,9 @@ func main() {
 
 	assessmentSvc := assessmentService.NewAssessmentService(
 		assessmentRepo,
+		calendarSvc,
+		studentSvc,
+		classroomSvc,
 	)
 
 	assessmentH := assessmentHandler.NewAssessmentHandler(
@@ -547,14 +550,16 @@ func main() {
 
 	assessmentRead := allUsers.Group("/assessments")
 	{
-		assessmentRead.GET(
-			"",
-			assessmentH.GetAll,
-		)
+		assessmentRead.GET("", assessmentH.GetAll)
 
 		assessmentRead.GET(
 			"/student/:studentId",
 			assessmentH.GetByStudent,
+		)
+
+		assessmentRead.GET(
+			"/student/:studentId/monthly-summary",
+			assessmentH.GetMonthlySummary,
 		)
 	}
 

@@ -810,7 +810,9 @@ func (h *StudentHandler) GetMe(c *gin.Context) {
 
 	assessments, err := h.assessmentService.GetByStudent(
 		c.Request.Context(),
+		collegeID,
 		studentID,
+		academicYear,
 	)
 
 	if err != nil {
@@ -819,7 +821,6 @@ func (h *StudentHandler) GetMe(c *gin.Context) {
 		})
 		return
 	}
-
 	// ------------------------------------------
 	// 7. Combined response
 	// ------------------------------------------
