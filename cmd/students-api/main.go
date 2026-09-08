@@ -20,6 +20,10 @@ import (
 	authMiddleware "github.com/shivkumar7dandin-gif/students-api/internal/auth/middleware"
 	authService "github.com/shivkumar7dandin-gif/students-api/internal/auth/service"
 
+	calendarHandler "github.com/shivkumar7dandin-gif/students-api/internal/calendar/handler"
+	calendarRepository "github.com/shivkumar7dandin-gif/students-api/internal/calendar/repository"
+	calendarService "github.com/shivkumar7dandin-gif/students-api/internal/calendar/service"
+
 	classroomHandler "github.com/shivkumar7dandin-gif/students-api/internal/classroom/handler"
 	classroomRepository "github.com/shivkumar7dandin-gif/students-api/internal/classroom/repository"
 	classroomService "github.com/shivkumar7dandin-gif/students-api/internal/classroom/service"
@@ -150,6 +154,20 @@ func main() {
 	)
 
 	// =========================
+	// CALENDAR
+	// =========================
+
+	calendarRepo := calendarRepository.NewCalendarRepository(db)
+
+	calendarSvc := calendarService.NewCalendarService(
+		calendarRepo,
+	)
+
+	calendarH := calendarHandler.NewCalendarHandler(
+		calendarSvc,
+	)
+
+	// =========================
 	// ATTENDANCE
 	// =========================
 
@@ -157,6 +175,9 @@ func main() {
 
 	attendanceSvc := attendanceService.NewAttendanceService(
 		attendanceRepo,
+		calendarSvc,
+		studentSvc,
+		classroomSvc,
 	)
 
 	attendanceH := attendanceHandler.NewAttendanceHandler(
@@ -462,15 +483,39 @@ func main() {
 	)
 
 	// =========================
+	// CALENDAR ROUTES
+	// =========================
+
+	// All authenticated users can read the school calendar.
+	calendarRead := allUsers.Group("/calendars")
+	{
+		calendarRead.GET(
+			"",
+			calendarH.GetAll,
+		)
+
+		calendarRead.GET(
+			"/:academicYear",
+			calendarH.GetByAcademicYear,
+		)
+	}
+
+	// Only college admin can create a calendar.
+	calendarAdmin := adminOnly.Group("/calendars")
+	{
+		calendarAdmin.POST(
+			"",
+			calendarH.Create,
+		)
+	}
+
+	// =========================
 	// ATTENDANCE ROUTES
 	// =========================
 
 	attendanceRead := allUsers.Group("/attendance")
 	{
-		attendanceRead.GET(
-			"",
-			attendanceH.GetAll,
-		)
+		attendanceRead.GET("", attendanceH.GetAll)
 
 		attendanceRead.GET(
 			"/student/:studentId",
@@ -480,6 +525,11 @@ func main() {
 		attendanceRead.GET(
 			"/student/:studentId/summary",
 			attendanceH.GetSummary,
+		)
+
+		attendanceRead.GET(
+			"/student/:studentId/monthly-summary",
+			attendanceH.GetMonthlySummary,
 		)
 	}
 

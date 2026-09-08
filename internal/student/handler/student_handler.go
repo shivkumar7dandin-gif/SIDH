@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	studentModel "github.com/shivkumar7dandin-gif/students-api/internal/student/model"
@@ -747,12 +748,21 @@ func (h *StudentHandler) GetMe(c *gin.Context) {
 	}
 
 	// ------------------------------------------
+	// 4. Get college_id from JWT
+	// ------------------------------------------
+
+	collegeID, ok := getStudentCollegeID(c)
+	if !ok {
+		return
+	}
+	// ------------------------------------------
 	// 4. Get student profile
 	// ------------------------------------------
 
-	student, err := h.service.GetByID(
+	student, err := h.service.GetByIDAndCollegeID(
 		c.Request.Context(),
 		studentID,
+		collegeID,
 	)
 
 	if err != nil {
@@ -763,14 +773,30 @@ func (h *StudentHandler) GetMe(c *gin.Context) {
 	}
 
 	// ------------------------------------------
+	// 6. Get academic year
+	// ------------------------------------------
+
+	academicYear := strings.TrimSpace(
+		c.Query("academic_year"),
+	)
+
+	if academicYear == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "academic_year query parameter is required",
+		})
+		return
+	}
+
+	// ------------------------------------------
 	// 5. Get attendance summary
 	// ------------------------------------------
 
 	attendanceSummary, err := h.attendanceService.GetSummary(
 		c.Request.Context(),
+		collegeID,
 		studentID,
+		academicYear,
 	)
-
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "failed to get attendance summary",

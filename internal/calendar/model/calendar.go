@@ -43,3 +43,10 @@ type CreateHolidayRequest struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
 }
+
+type DayStatus struct {
+	Date         string   `json:"date"`
+	IsWorkingDay bool     `json:"is_working_day"`
+	Reason       string   `json:"reason"`
+	Holiday      *Holiday `json:"holiday,omitempty"`
+}
