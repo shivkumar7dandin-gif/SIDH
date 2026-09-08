@@ -141,21 +141,17 @@ func (r *StudentRepository) Delete(
 // Count students inside one classroom
 func (r *StudentRepository) CountByClassroom(
 	ctx context.Context,
+	collegeID bson.ObjectID,
 	classroomID string,
 ) (int64, error) {
 
-	count, err := r.collection.CountDocuments(
+	return r.collection.CountDocuments(
 		ctx,
 		bson.M{
+			"college_id":   collegeID,
 			"classroom_id": classroomID,
 		},
 	)
-
-	if err != nil {
-		return 0, err
-	}
-
-	return count, nil
 }
 
 // Check duplicate roll number inside same classroom

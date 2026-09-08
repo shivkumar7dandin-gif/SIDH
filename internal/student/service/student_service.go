@@ -168,6 +168,7 @@ func (s *StudentService) Create(
 
 	count, err := s.studentRepo.CountByClassroom(
 		ctx,
+		collegeID,
 		req.ClassroomID,
 	)
 
@@ -376,6 +377,7 @@ func (s *StudentService) Update(
 		count, err :=
 			s.studentRepo.CountByClassroom(
 				ctx,
+				classroom.CollegeID,
 				student.ClassroomID,
 			)
 
@@ -481,19 +483,15 @@ func (s *StudentService) UpdateByCollegeID(
 		return errors.New("invalid classroom_id")
 	}
 
-	classroom, err := s.classroomRepo.GetByID(
+	classroom, err := s.classroomRepo.GetByIDAndCollegeID(
 		ctx,
 		classroomObjectID,
+		collegeID,
 	)
-	if err != nil {
-		return errors.New("classroom not found")
-	}
 
-	// Very important:
-	// selected classroom must belong to same school
-	if classroom.CollegeID != collegeID {
+	if err != nil {
 		return errors.New(
-			"classroom does not belong to your school",
+			"classroom not found or does not belong to your school",
 		)
 	}
 
@@ -526,9 +524,9 @@ func (s *StudentService) UpdateByCollegeID(
 
 		count, err := s.studentRepo.CountByClassroom(
 			ctx,
+			collegeID,
 			student.ClassroomID,
 		)
-
 		if err != nil {
 			return fmt.Errorf(
 				"failed to check classroom capacity: %w",
