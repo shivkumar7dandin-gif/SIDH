@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	calendarModel "github.com/shivkumar7dandin-gif/students-api/internal/calendar/model"
 	calendarService "github.com/shivkumar7dandin-gif/students-api/internal/calendar/service"
@@ -179,5 +180,55 @@ func (h *CalendarHandler) GetByAcademicYear(
 	c.JSON(
 		http.StatusOK,
 		calendar,
+	)
+}
+
+// PATCH /api/v1/calendars/:academicYear/close
+func (h *CalendarHandler) CloseAcademicYear(
+	c *gin.Context,
+) {
+
+	collegeID, ok := getCalendarCollegeID(c)
+
+	if !ok {
+		return
+	}
+
+	academicYear := c.Param("academicYear")
+
+	err := h.service.CloseAcademicYear(
+		c.Request.Context(),
+		collegeID,
+		academicYear,
+	)
+
+	if err != nil {
+
+		if err == mongo.ErrNoDocuments {
+			c.JSON(
+				http.StatusNotFound,
+				gin.H{
+					"error": "academic calendar not found",
+				},
+			)
+			return
+		}
+
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+		return
+	}
+
+	c.JSON(
+		http.StatusOK,
+		gin.H{
+			"message":       "academic year closed successfully",
+			"academic_year": academicYear,
+			"status":        "closed",
+		},
 	)
 }

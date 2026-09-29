@@ -46,6 +46,10 @@ import (
 	teacherRepository "github.com/shivkumar7dandin-gif/students-api/internal/teacher/repository"
 	teacherService "github.com/shivkumar7dandin-gif/students-api/internal/teacher/service"
 
+	timetableHandler "github.com/shivkumar7dandin-gif/students-api/internal/timetable/handler"
+	timetableRepository "github.com/shivkumar7dandin-gif/students-api/internal/timetable/repository"
+	timetableService "github.com/shivkumar7dandin-gif/students-api/internal/timetable/service"
+
 	userRepository "github.com/shivkumar7dandin-gif/students-api/internal/user/repository"
 )
 
@@ -84,22 +88,57 @@ func main() {
 	// COLLEGE
 	// =========================
 
-	collegeRepo := collegeRepository.NewCollegeRepository(db)
+	collegeRepo :=
+		collegeRepository.NewCollegeRepository(db)
 
-	teacherRepo := teacherRepository.NewTeacherRepository(db)
+	teacherRepo :=
+		teacherRepository.NewTeacherRepository(db)
 
-	classroomRepo := classroomRepository.NewClassroomRepository(db)
+	classroomRepo :=
+		classroomRepository.NewClassroomRepository(db)
 
-	studentRepo := studentRepository.NewStudentRepository(db)
+	studentRepo :=
+		studentRepository.NewStudentRepository(db)
 
-	collegeSvc := collegeService.NewCollegeService(
-		collegeRepo,
-		teacherRepo,
-		classroomRepo,
-		studentRepo,
-	)
+	attendanceRepo :=
+		attendanceRepository.NewAttendanceRepository(db)
+
+	// =========================
+	// CALENDAR REPOSITORY/SERVICE
+	// =========================
+
+	calendarRepo :=
+		calendarRepository.NewCalendarRepository(db)
+
+	calendarSvc :=
+		calendarService.NewCalendarService(
+			calendarRepo,
+		)
+
+	// =========================
+	// TIMETABLE REPOSITORY
+	// =========================
+
+	timetableRepo :=
+		timetableRepository.NewTimetableRepository(db)
+
+	// =========================
+	// COLLEGE
+	// =========================
+
+	collegeSvc :=
+		collegeService.NewCollegeService(
+			collegeRepo,
+			teacherRepo,
+			classroomRepo,
+			studentRepo,
+			attendanceRepo,
+			timetableRepo,
+			calendarSvc,
+		)
 
 	collegeH := collegeHandler.NewCollegeHandler(collegeSvc)
+
 	// =========================
 	// AUTH
 	// =========================
@@ -160,21 +199,33 @@ func main() {
 	// CALENDAR
 	// =========================
 
-	calendarRepo := calendarRepository.NewCalendarRepository(db)
+	calendarH :=
+		calendarHandler.NewCalendarHandler(
+			calendarSvc,
+		)
 
-	calendarSvc := calendarService.NewCalendarService(
-		calendarRepo,
-	)
+		// =========================
+		// TIMETABLE
+		// =========================
 
-	calendarH := calendarHandler.NewCalendarHandler(
-		calendarSvc,
-	)
+	timetableSvc :=
+		timetableService.NewTimetableService(
+			timetableRepo,
+			teacherRepo,
+			classroomRepo,
+			calendarSvc,
+		)
+
+	timetableH :=
+		timetableHandler.NewTimetableHandler(
+			timetableSvc,
+		)
 
 	// =========================
 	// ATTENDANCE
 	// =========================
 
-	attendanceRepo := attendanceRepository.NewAttendanceRepository(db)
+	//attendanceRepo := attendanceRepository.NewAttendanceRepository(db)
 
 	attendanceSvc := attendanceService.NewAttendanceService(
 		attendanceRepo,
@@ -419,6 +470,61 @@ func main() {
 		"/teachers/me",
 		teacherH.GetMe,
 	)
+
+	// =========================
+	// TIMETABLE ROUTES
+	// =========================
+
+	// All authenticated users can view timetable.
+	timetableRead := allUsers.Group("/timetables")
+	{
+		// Get all timetable records for academic year
+		// GET /api/v1/timetables?academic_year=2026-2027
+		timetableRead.GET(
+			"",
+			timetableH.GetAll,
+		)
+
+		// Get timetable for a particular day
+		// GET /api/v1/timetables/day/monday?academic_year=2026-2027
+		timetableRead.GET(
+			"/day/:day",
+			timetableH.GetByDay,
+		)
+
+		// Get one teacher's timetable for a particular day
+		// GET /api/v1/timetables/teacher/:teacherId?day=monday&academic_year=2026-2027
+		timetableRead.GET(
+			"/teacher/:teacherId",
+			timetableH.GetByTeacherAndDay,
+		)
+	}
+
+	// Only college admin can create, update and delete timetable.
+	timetableAdmin := adminOnly.Group("/timetables")
+	{
+		// Create timetable
+		// POST /api/v1/timetables
+		timetableAdmin.POST(
+			"",
+			timetableH.Create,
+		)
+
+		// Update timetable
+		// PUT /api/v1/timetables/:id
+		timetableAdmin.PUT(
+			"/:id",
+			timetableH.Update,
+		)
+
+		// Delete timetable
+		// DELETE /api/v1/timetables/:id
+		timetableAdmin.DELETE(
+			"/:id",
+			timetableH.Delete,
+		)
+	}
+
 	// =========================
 	// CLASSROOM ROUTES
 	// =========================
@@ -516,15 +622,19 @@ func main() {
 		)
 	}
 
-	// Only college admin can create a calendar.
+	// Only college admin can create and close an academic year.
 	calendarAdmin := adminOnly.Group("/calendars")
 	{
 		calendarAdmin.POST(
 			"",
 			calendarH.Create,
 		)
-	}
 
+		calendarAdmin.PATCH(
+			"/:academicYear/close",
+			calendarH.CloseAcademicYear,
+		)
+	}
 	// =========================
 	// ATTENDANCE ROUTES
 	// =========================
@@ -539,14 +649,11 @@ func main() {
 		)
 
 		attendanceRead.GET(
-			"/student/:studentId/summary",
-			attendanceH.GetSummary,
+			"/classroom/:classroomId/monthly-summary",
+			attendanceH.GetClassroomMonthlySummary,
 		)
 
-		attendanceRead.GET(
-			"/student/:studentId/monthly-summary",
-			attendanceH.GetMonthlySummary,
-		)
+		// keep your existing summary/monthly routes unchanged
 	}
 
 	attendanceWrite := teacherAndAdmin.Group("/attendance")
@@ -555,8 +662,12 @@ func main() {
 			"",
 			attendanceH.Create,
 		)
-	}
 
+		attendanceWrite.POST(
+			"/bulk",
+			attendanceH.CreateBulk,
+		)
+	}
 	// =========================
 	// ASSESSMENT ROUTES
 	// =========================

@@ -1,635 +1,586 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import {
-  deleteStudent,
-  getStudents,
-} from "../api/studentApi";
+import { createStudent } from "../api/studentApi";
 
-import {
-  getClassrooms,
-  type Classroom,
-} from "../api/classroomApi";
+import { getClassrooms, type Classroom } from "../api/classroomApi";
 
-type Student = {
-  id: string;
-  college_id: string;
-  name: string;
-  age: number;
-  roll_number: number;
-  gender: string;
-  classroom_id: string;
-};
-
-function Students() {
+function AddStudent() {
   const navigate = useNavigate();
 
-  const [students, setStudents] = useState<Student[]>([]);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+
   const [error, setError] = useState("");
 
-  const [selectedClassroomID, setSelectedClassroomID] =
-    useState<string>("");
+  // Show / Hide password
+  const [showPassword, setShowPassword] = useState(false);
 
-  const [currentPage, setCurrentPage] =
-    useState(1);
+  const [form, setForm] = useState({
+    name: "",
+    age: "",
+    roll_number: "",
+    gender: "",
+    classroom_id: "",
+    username: "",
+    password: "",
 
-  const studentsPerPage = 20;
+    guardian: {
+      name: "",
+      relation: "",
+      phone: "",
+      email: "",
+    },
+
+    address: {
+      house_no: "",
+      street: "",
+      village: "",
+      city: "",
+      state: "",
+      pincode: "",
+    },
+  });
 
   // ------------------------------------------------
-  // LOAD STUDENTS + CLASSROOMS
+  // LOAD CLASSROOMS
   // ------------------------------------------------
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadClassrooms = async () => {
       try {
-        setLoading(true);
         setError("");
 
-        const [studentsData, classroomsData] =
-          await Promise.all([
-            getStudents(),
-            getClassrooms(),
-          ]);
+        const data = await getClassrooms();
 
-        console.log(
-          "Students response:",
-          studentsData,
-        );
+        console.log("Classrooms response:", data);
 
-        console.log(
-          "Classrooms response:",
-          classroomsData,
-        );
-
-        if (Array.isArray(studentsData)) {
-          setStudents(studentsData);
-        } else if (
-          studentsData &&
-          Array.isArray(studentsData.students)
-        ) {
-          setStudents(studentsData.students);
-        } else {
-          setStudents([]);
-        }
-
-        if (Array.isArray(classroomsData)) {
-          setClassrooms(classroomsData);
-        } else {
-          setClassrooms([]);
-        }
+        setClassrooms(data);
       } catch (err) {
-        console.error(
-          "Students page error:",
-          err,
-        );
+        console.error("Failed to load classrooms:", err);
 
-        setError(
-          "Failed to load students",
-        );
-      } finally {
-        setLoading(false);
+        setError("Failed to load classrooms");
       }
     };
 
-    loadData();
+    loadClassrooms();
   }, []);
 
   // ------------------------------------------------
-  // ADD STUDENT
+  // NORMAL FORM CHANGE
   // ------------------------------------------------
 
-  const handleAddStudent = () => {
-    navigate("/students/add");
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    const { name, value } = e.target;
+
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
   };
 
   // ------------------------------------------------
-  // EDIT STUDENT
+  // GUARDIAN CHANGE
   // ------------------------------------------------
 
-  const handleEditStudent = (
-    studentID: string,
+  const handleGuardianChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
-    navigate(
-      `/students/${studentID}/edit`,
-    );
+    const { name, value } = e.target;
+
+    setForm((previous) => ({
+      ...previous,
+
+      guardian: {
+        ...previous.guardian,
+        [name]: value,
+      },
+    }));
   };
 
   // ------------------------------------------------
-  // DELETE STUDENT
+  // ADDRESS CHANGE
   // ------------------------------------------------
 
-  const handleDeleteStudent = async (
-    student: Student,
-  ) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${student.name}?`,
-    );
+  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
 
-    if (!confirmed) {
-      return;
-    }
+    setForm((previous) => ({
+      ...previous,
 
-    try {
-      setError("");
-
-      await deleteStudent(student.id);
-
-      setStudents((currentStudents) =>
-        currentStudents.filter(
-          (item) =>
-            item.id !== student.id,
-        ),
-      );
-    } catch (err) {
-      console.error(
-        "Delete student error:",
-        err,
-      );
-
-      setError(
-        "Failed to delete student",
-      );
-    }
-  };
-
-  // ------------------------------------------------
-  // GET CLASSROOM NAME
-  // ------------------------------------------------
-
-  const getClassroomName = (
-    classroomID: string,
-  ) => {
-    const classroom = classrooms.find(
-      (item) =>
-        item.id === classroomID,
-    );
-
-    if (!classroom) {
-      return "Classroom not found";
-    }
-
-    return `${classroom.name} - Section ${classroom.section}`;
-  };
-
-  // ------------------------------------------------
-  // STUDENT COUNT BY CLASSROOM
-  // ------------------------------------------------
-
-  const getStudentCount = (
-    classroomID: string,
-  ) => {
-    return students.filter(
-      (student) =>
-        student.classroom_id === classroomID,
-    ).length;
+      address: {
+        ...previous.address,
+        [name]: value,
+      },
+    }));
   };
 
   // ------------------------------------------------
   // SORT CLASSROOMS
   // ------------------------------------------------
 
-  const sortedClassrooms =
-    [...classrooms].sort(
-      (a, b) => {
-        const classA =
-          parseInt(a.name) || 0;
+  const sortedClassrooms = [...classrooms].sort((a, b) => {
+    const classA = parseInt(a.name) || 0;
 
-        const classB =
-          parseInt(b.name) || 0;
+    const classB = parseInt(b.name) || 0;
 
-        if (classA !== classB) {
-          return classA - classB;
-        }
+    if (classA !== classB) {
+      return classA - classB;
+    }
 
-        return a.section.localeCompare(
-          b.section,
-        );
-      },
-    );
+    return a.section.localeCompare(b.section);
+  });
 
   // ------------------------------------------------
-  // FILTER STUDENTS BY CLASSROOM
+  // SUBMIT
   // ------------------------------------------------
 
-  const filteredStudents =
-    selectedClassroomID
-      ? students.filter(
-          (student) =>
-            student.classroom_id ===
-            selectedClassroomID,
-        )
-      : students;
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-  // ------------------------------------------------
-  // SELECTED CLASSROOM
-  // ------------------------------------------------
+    setLoading(true);
+    setError("");
 
-  const selectedClassroom =
-    classrooms.find(
-      (classroom) =>
-        classroom.id ===
-        selectedClassroomID,
-    );
+    try {
+      const studentData = {
+        name: form.name.trim(),
 
-  // ------------------------------------------------
-  // PAGINATION
-  // ------------------------------------------------
+        age: Number(form.age),
 
-  const totalPages = Math.ceil(
-    filteredStudents.length /
-      studentsPerPage,
-  );
+        roll_number: Number(form.roll_number),
 
-  const startIndex =
-    (currentPage - 1) *
-    studentsPerPage;
+        gender: form.gender,
 
-  const endIndex =
-    startIndex +
-    studentsPerPage;
+        classroom_id: form.classroom_id,
 
-  const paginatedStudents =
-    filteredStudents.slice(
-      startIndex,
-      endIndex,
-    );
+        username: form.username.trim(),
 
-  // ------------------------------------------------
-  // CLASSROOM CLICK
-  // ------------------------------------------------
+        password: form.password,
 
-  const handleClassroomClick = (
-    classroomID: string,
-  ) => {
-    setSelectedClassroomID(
-      classroomID,
-    );
+        guardians: [
+          {
+            name: form.guardian.name.trim(),
 
-    setCurrentPage(1);
-  };
+            relation: form.guardian.relation,
 
-  // ------------------------------------------------
-  // ALL STUDENTS
-  // ------------------------------------------------
+            phone: form.guardian.phone.trim(),
 
-  const handleAllStudents = () => {
-    setSelectedClassroomID("");
+            email: form.guardian.email.trim(),
 
-    setCurrentPage(1);
+            primary: true,
+
+            receive_report: true,
+          },
+        ],
+
+        address: {
+          house_no: form.address.house_no.trim(),
+
+          street: form.address.street.trim(),
+
+          village: form.address.village.trim(),
+
+          city: form.address.city.trim(),
+
+          state: form.address.state.trim(),
+
+          pincode: form.address.pincode.trim(),
+        },
+      };
+
+      console.log("Creating student:", studentData);
+
+      await createStudent(studentData);
+
+      navigate("/students");
+    } catch (err: any) {
+      console.error("Create student error:", err);
+
+      const message =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Failed to create student";
+
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
+      {/* PAGE TITLE */}
 
-      {/* PAGE HEADER */}
+      <h1 className="text-3xl font-bold">Add Student</h1>
 
-      <div className="flex justify-between items-center">
-
-        <div>
-          <h1 className="text-3xl font-bold">
-            Students
-          </h1>
-
-          <p className="text-gray-600 mt-2">
-            Manage students of your school.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleAddStudent}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg"
-        >
-          + Add Student
-        </button>
-
-      </div>
-
-      {/* LOADING */}
-
-      {loading && (
-        <p className="mt-8 text-gray-500">
-          Loading students...
-        </p>
-      )}
+      <p className="text-gray-600 mt-2">Register a new student.</p>
 
       {/* ERROR */}
 
       {error && (
-        <p className="mt-8 text-red-600">
+        <div className="mt-5 bg-red-100 text-red-700 p-3 rounded-lg">
           {error}
-        </p>
+        </div>
       )}
 
-      {!loading && !error && (
-        <>
+      {/* FORM */}
 
-          {/* STUDENTS BY CLASSROOM */}
+      <form
+        onSubmit={handleSubmit}
+        autoComplete="off"
+        className="bg-white rounded-xl shadow mt-8 p-8 max-w-5xl"
+      >
+        {/* STUDENT DETAILS */}
 
-          <div className="bg-white rounded-xl shadow mt-8 p-6">
+        <h2 className="text-xl font-semibold mb-5">Student Details</h2>
 
-            <div className="flex justify-between items-center mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* STUDENT NAME */}
 
-              <h2 className="text-xl font-semibold">
-                Students by Classroom
-              </h2>
+          <div>
+            <label className="block font-medium mb-2">Student Name</label>
+
+            <input
+              type="text"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              placeholder="Enter student name"
+              required
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+
+          {/* AGE */}
+
+          <div>
+            <label className="block font-medium mb-2">Age</label>
+
+            <input
+              type="number"
+              name="age"
+              value={form.age}
+              onChange={handleChange}
+              placeholder="Enter age"
+              min="1"
+              required
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+
+          {/* ROLL NUMBER */}
+
+          <div>
+            <label className="block font-medium mb-2">Roll Number</label>
+
+            <input
+              type="number"
+              name="roll_number"
+              value={form.roll_number}
+              onChange={handleChange}
+              placeholder="Enter roll number"
+              min="1"
+              required
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+
+          {/* GENDER */}
+
+          <div>
+            <label className="block font-medium mb-2">Gender</label>
+
+            <select
+              name="gender"
+              value={form.gender}
+              onChange={handleChange}
+              required
+              className="w-full border rounded-lg p-3"
+            >
+              <option value="">Select gender</option>
+
+              <option value="Male">Male</option>
+
+              <option value="Female">Female</option>
+
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          {/* CLASSROOM */}
+
+          <div>
+            <label className="block font-medium mb-2">Classroom</label>
+
+            <select
+              name="classroom_id"
+              value={form.classroom_id}
+              onChange={handleChange}
+              required
+              className="w-full border rounded-lg p-3"
+            >
+              <option value="">Select classroom</option>
+
+              {sortedClassrooms.map((classroom) => (
+                <option key={classroom.id} value={classroom.id}>
+                  {classroom.name}
+                  {classroom.section ? ` - Section ${classroom.section}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* USERNAME */}
+
+          <div>
+            <label className="block font-medium mb-2">Username</label>
+
+            <input
+              type="text"
+              name="username"
+              value={form.username}
+              onChange={handleChange}
+              placeholder="Create student username"
+              required
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+
+          {/* PASSWORD */}
+
+          <div>
+            <label className="block font-medium mb-2">Password</label>
+
+            <div className="flex gap-2">
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                placeholder="Create student password"
+                minLength={8}
+                required
+                autoComplete="new-password"
+                className="w-full border rounded-lg p-3"
+              />
 
               <button
                 type="button"
-                onClick={handleAllStudents}
-                className={`px-4 py-2 rounded-lg ${
-                  selectedClassroomID === ""
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                onClick={() => setShowPassword((previous) => !previous)}
+                className="border px-4 rounded-lg hover:bg-gray-100"
               >
-                All Students
+                {showPassword ? "Hide" : "Show"}
               </button>
-
             </div>
+          </div>
+        </div>
 
-            {sortedClassrooms.length === 0 ? (
-              <p className="text-gray-500">
-                No classrooms found.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* GUARDIAN DETAILS */}
 
-                {sortedClassrooms.map(
-                  (classroom) => {
-                    const studentCount =
-                      getStudentCount(
-                        classroom.id,
-                      );
+        <h2 className="text-xl font-semibold mt-8 mb-5">Guardian Details</h2>
 
-                    const isSelected =
-                      selectedClassroomID ===
-                      classroom.id;
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* GUARDIAN NAME */}
 
-                    return (
-                      <div
-                        key={classroom.id}
-                        onClick={() =>
-                          handleClassroomClick(
-                            classroom.id,
-                          )
-                        }
-                        className={`border rounded-lg p-4 cursor-pointer transition ${
-                          isSelected
-                            ? "border-blue-600 bg-blue-50"
-                            : "hover:bg-gray-50"
-                        }`}
-                      >
+          <div>
+            <label className="block font-medium mb-2">Guardian Name</label>
 
-                        <h3 className="font-semibold text-lg">
-                          {classroom.name}
-                        </h3>
-
-                        <p className="text-gray-500 mt-1">
-                          Section{" "}
-                          {classroom.section}
-                        </p>
-
-                        <p className="text-2xl font-bold mt-3">
-                          {studentCount} /{" "}
-                          {classroom.capacity}
-                        </p>
-
-                        <p className="text-sm text-gray-500">
-                          Students
-                        </p>
-
-                      </div>
-                    );
-                  },
-                )}
-
-              </div>
-            )}
-
+            <input
+              type="text"
+              name="name"
+              value={form.guardian.name}
+              onChange={handleGuardianChange}
+              placeholder="Enter guardian name"
+              required
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
           </div>
 
-          {/* STUDENT LIST */}
+          {/* RELATION */}
 
-          <div className="bg-white rounded-xl shadow mt-8">
+          <div>
+            <label className="block font-medium mb-2">Relation</label>
 
-            <div className="p-6 border-b">
+            <select
+              name="relation"
+              value={form.guardian.relation}
+              onChange={handleGuardianChange}
+              required
+              className="w-full border rounded-lg p-3"
+            >
+              <option value="">Select relation</option>
 
-              <h2 className="text-xl font-semibold">
-                Student List
-              </h2>
+              <option value="father">Father</option>
 
-              {selectedClassroom ? (
-                <p className="text-blue-600 mt-2 font-medium">
-                  {selectedClassroom.name}
-                  {" - Section "}
-                  {selectedClassroom.section}
-                </p>
-              ) : (
-                <p className="text-gray-500 mt-2">
-                  All Classrooms
-                </p>
-              )}
+              <option value="mother">Mother</option>
 
-              <p className="text-gray-500 mt-1">
-                Total Students:{" "}
-                {filteredStudents.length}
-              </p>
+              <option value="guardian">Guardian</option>
 
-            </div>
-
-            {/* NO STUDENTS */}
-
-            {filteredStudents.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                No students found in this classroom.
-              </div>
-            ) : (
-              <>
-
-                {/* TABLE */}
-
-                <div className="overflow-x-auto">
-
-                  <table className="w-full">
-
-                    <thead className="bg-gray-50">
-                      <tr>
-
-                        <th className="text-left p-4">
-                          Roll No
-                        </th>
-
-                        <th className="text-left p-4">
-                          Name
-                        </th>
-
-                        <th className="text-left p-4">
-                          Age
-                        </th>
-
-                        <th className="text-left p-4">
-                          Gender
-                        </th>
-
-                        <th className="text-left p-4">
-                          Classroom
-                        </th>
-
-                        <th className="text-left p-4">
-                          Actions
-                        </th>
-
-                      </tr>
-                    </thead>
-
-                    <tbody>
-
-                      {paginatedStudents.map(
-                        (student) => (
-                          <tr
-                            key={student.id}
-                            className="border-t hover:bg-gray-50"
-                          >
-
-                            <td className="p-4">
-                              {student.roll_number}
-                            </td>
-
-                            <td className="p-4 font-medium">
-                              {student.name}
-                            </td>
-
-                            <td className="p-4">
-                              {student.age}
-                            </td>
-
-                            <td className="p-4">
-                              {student.gender}
-                            </td>
-
-                            <td className="p-4">
-                              {getClassroomName(
-                                student.classroom_id,
-                              )}
-                            </td>
-
-                            <td className="p-4">
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleEditStudent(
-                                    student.id,
-                                  )
-                                }
-                                className="text-blue-600 hover:underline mr-4"
-                              >
-                                Edit
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleDeleteStudent(
-                                    student,
-                                  )
-                                }
-                                className="text-red-600 hover:underline"
-                              >
-                                Delete
-                              </button>
-
-                            </td>
-
-                          </tr>
-                        ),
-                      )}
-
-                    </tbody>
-
-                  </table>
-
-                </div>
-
-                {/* PAGINATION */}
-
-                <div className="flex justify-between items-center p-5 border-t">
-
-                  <p className="text-gray-600">
-
-                    Showing{" "}
-                    {startIndex + 1}
-                    {" - "}
-                    {Math.min(
-                      endIndex,
-                      filteredStudents.length,
-                    )}
-                    {" of "}
-                    {filteredStudents.length}
-                    {" students"}
-
-                  </p>
-
-                  <div className="flex items-center gap-3">
-
-                    <button
-                      type="button"
-                      disabled={
-                        currentPage === 1
-                      }
-                      onClick={() =>
-                        setCurrentPage(
-                          (page) =>
-                            page - 1,
-                        )
-                      }
-                      className="px-4 py-2 border rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      Previous
-                    </button>
-
-                    <span className="text-gray-700">
-                      Page{" "}
-                      {currentPage}
-                      {" of "}
-                      {totalPages || 1}
-                    </span>
-
-                    <button
-                      type="button"
-                      disabled={
-                        currentPage >=
-                        totalPages
-                      }
-                      onClick={() =>
-                        setCurrentPage(
-                          (page) =>
-                            page + 1,
-                        )
-                      }
-                      className="px-4 py-2 border rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
-
-                  </div>
-
-                </div>
-
-              </>
-            )}
-
+              <option value="other">Other</option>
+            </select>
           </div>
 
-        </>
-      )}
+          {/* PHONE NUMBER */}
 
+          <div>
+            <label className="block font-medium mb-2">Phone Number</label>
+
+            <input
+              type="tel"
+              name="phone"
+              value={form.guardian.phone}
+              onChange={handleGuardianChange}
+              placeholder="Enter guardian phone number"
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+
+          {/* EMAIL */}
+
+          <div>
+            <label className="block font-medium mb-2">Email</label>
+
+            <input
+              type="email"
+              name="email"
+              value={form.guardian.email}
+              onChange={handleGuardianChange}
+              placeholder="Enter guardian email"
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+        </div>
+
+        <p className="text-sm text-gray-500 mt-3">
+          Enter at least a phone number or email for the guardian.
+        </p>
+
+        {/* ADDRESS */}
+
+        <h2 className="text-xl font-semibold mt-8 mb-5">Address</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* HOUSE NO */}
+
+          <div>
+            <label className="block font-medium mb-2">House No</label>
+
+            <input
+              type="text"
+              name="house_no"
+              value={form.address.house_no}
+              onChange={handleAddressChange}
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+
+          {/* STREET */}
+
+          <div>
+            <label className="block font-medium mb-2">Street</label>
+
+            <input
+              type="text"
+              name="street"
+              value={form.address.street}
+              onChange={handleAddressChange}
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+
+          {/* VILLAGE */}
+
+          <div>
+            <label className="block font-medium mb-2">Village</label>
+
+            <input
+              type="text"
+              name="village"
+              value={form.address.village}
+              onChange={handleAddressChange}
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+
+          {/* CITY */}
+
+          <div>
+            <label className="block font-medium mb-2">City</label>
+
+            <input
+              type="text"
+              name="city"
+              value={form.address.city}
+              onChange={handleAddressChange}
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+
+          {/* STATE */}
+
+          <div>
+            <label className="block font-medium mb-2">State</label>
+
+            <input
+              type="text"
+              name="state"
+              value={form.address.state}
+              onChange={handleAddressChange}
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+
+          {/* PINCODE */}
+
+          <div>
+            <label className="block font-medium mb-2">Pincode</label>
+
+            <input
+              type="text"
+              name="pincode"
+              value={form.address.pincode}
+              onChange={handleAddressChange}
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+        </div>
+
+        {/* BUTTONS */}
+
+        <div className="flex gap-4 mt-8">
+          <button
+            type="submit"
+            disabled={loading}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-6 py-3 rounded-lg"
+          >
+            {loading ? "Creating..." : "Create Student"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/students")}
+            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
 
-export default Students;
+export default AddStudent;

@@ -64,6 +64,20 @@ func (s *AssessmentService) Create(
 		)
 	}
 
+	if s.calendarService == nil {
+		return nil, fmt.Errorf(
+			"calendar service is not configured",
+		)
+	}
+
+	if err := s.calendarService.ValidateActiveAcademicYear(
+		ctx,
+		collegeID,
+		assessment.AcademicYear,
+	); err != nil {
+		return nil, err
+	}
+
 	// ========================================
 	// 2. Student
 	// ========================================
@@ -188,12 +202,6 @@ func (s *AssessmentService) Create(
 	// ========================================
 	// 5. Validate academic calendar
 	// ========================================
-
-	if s.calendarService == nil {
-		return nil, fmt.Errorf(
-			"calendar service is not configured",
-		)
-	}
 
 	dayStatus, err :=
 		s.calendarService.GetDayStatus(

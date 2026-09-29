@@ -25,8 +25,9 @@ type AcademicCalendar struct {
 	WeeklyHolidays []string `json:"weekly_holidays" bson:"weekly_holidays"`
 
 	Holidays []Holiday `json:"holidays" bson:"holidays"`
-}
 
+	Status string `json:"status" bson:"status"`
+}
 type CreateAcademicCalendarRequest struct {
 	AcademicYear string `json:"academic_year"`
 

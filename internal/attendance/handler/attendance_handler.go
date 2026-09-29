@@ -2,8 +2,8 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -111,6 +111,66 @@ func (h *AttendanceHandler) Create(
 		gin.H{
 			"message":    "attendance created successfully",
 			"attendance": createdAttendance,
+		},
+	)
+}
+
+// ========================================
+// CREATE / UPDATE BULK ATTENDANCE
+// ========================================
+
+func (h *AttendanceHandler) CreateBulk(
+	c *gin.Context,
+) {
+
+	// College ID always comes from JWT.
+	collegeID, err := getCollegeID(c)
+
+	if err != nil {
+		c.JSON(
+			http.StatusUnauthorized,
+			gin.H{
+				"error": "invalid college_id",
+			},
+		)
+		return
+	}
+
+	var req model.BulkAttendanceRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+		return
+	}
+
+	attendanceList, err :=
+		h.service.CreateBulk(
+			c.Request.Context(),
+			collegeID,
+			req,
+		)
+
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+		return
+	}
+
+	c.JSON(
+		http.StatusOK,
+		gin.H{
+			"message":    "attendance saved successfully",
+			"attendance": attendanceList,
+			"total":      len(attendanceList),
 		},
 	)
 }
@@ -333,36 +393,66 @@ func (h *AttendanceHandler) GetSummary(
 }
 
 // ========================================
-// GET MONTHLY ATTENDANCE SUMMARY
+// GET CLASSROOM MONTHLY ATTENDANCE SUMMARY
 // ========================================
 
-func (h *AttendanceHandler) GetMonthlySummary(
+func (h *AttendanceHandler) GetClassroomMonthlySummary(
 	c *gin.Context,
 ) {
 
-	// Get college ID from JWT
+	// ========================================
+	// 1. Get college ID from JWT
+	// ========================================
+
 	collegeID, err := getCollegeID(c)
+
 	if err != nil {
 		c.JSON(
 			http.StatusUnauthorized,
-			gin.H{"error": "invalid college"},
+			gin.H{
+				"error": "invalid college_id",
+			},
 		)
 		return
 	}
 
-	// Get student ID
-	studentID, err := bson.ObjectIDFromHex(
-		c.Param("studentId"),
-	)
-	if err != nil {
+	// ========================================
+	// 2. Get classroom ID
+	// ========================================
+
+	classroomID :=
+		strings.TrimSpace(
+			c.Param("classroomId"),
+		)
+
+	if classroomID == "" {
 		c.JSON(
 			http.StatusBadRequest,
-			gin.H{"error": "invalid student id"},
+			gin.H{
+				"error": "classroom_id is required",
+			},
 		)
 		return
 	}
 
-	// Get academic year
+	// Validate ObjectID format
+	if _, err := bson.ObjectIDFromHex(
+		classroomID,
+	); err != nil {
+
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid classroom_id",
+			},
+		)
+		return
+	}
+
+	// ========================================
+	// 3. Get academic year
+	// ========================================
+
 	academicYear :=
 		strings.TrimSpace(
 			c.Query("academic_year"),
@@ -378,43 +468,54 @@ func (h *AttendanceHandler) GetMonthlySummary(
 		return
 	}
 
-	// Get year
-	year, err := strconv.Atoi(
-		c.Query("year"),
-	)
-	if err != nil || year <= 0 {
+	// ========================================
+	// 4. Get month
+	// Expected format: 2026-09
+	// ========================================
+
+	monthValue :=
+		strings.TrimSpace(
+			c.Query("month"),
+		)
+
+	if monthValue == "" {
 		c.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"error": "valid year is required",
+				"error": "month is required in YYYY-MM format",
 			},
 		)
 		return
 	}
 
-	// Get month
-	month, err := strconv.Atoi(
-		c.Query("month"),
-	)
-	if err != nil ||
-		month < 1 ||
-		month > 12 {
+	parsedMonth, err :=
+		time.Parse(
+			"2006-01",
+			monthValue,
+		)
 
+	if err != nil {
 		c.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"error": "month must be between 1 and 12",
+				"error": "month must be in YYYY-MM format",
 			},
 		)
 		return
 	}
 
-	// Get monthly summary
+	year := parsedMonth.Year()
+	month := int(parsedMonth.Month())
+
+	// ========================================
+	// 5. Get classroom monthly summary
+	// ========================================
+
 	summary, err :=
-		h.service.GetMonthlySummary(
+		h.service.GetClassroomMonthlySummary(
 			c.Request.Context(),
 			collegeID,
-			studentID,
+			classroomID,
 			academicYear,
 			year,
 			month,
@@ -422,11 +523,17 @@ func (h *AttendanceHandler) GetMonthlySummary(
 
 	if err != nil {
 		c.JSON(
-			http.StatusInternalServerError,
-			gin.H{"error": err.Error()},
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
 		)
 		return
 	}
+
+	// ========================================
+	// 6. Response
+	// ========================================
 
 	c.JSON(
 		http.StatusOK,

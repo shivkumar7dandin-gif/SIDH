@@ -117,3 +117,36 @@ func (r *CalendarRepository) ExistsByAcademicYear(
 
 	return count > 0, nil
 }
+
+func (r *CalendarRepository) UpdateStatus(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+	academicYear string,
+	currentStatus string,
+	newStatus string,
+) error {
+
+	result, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{
+			"college_id":    collegeID,
+			"academic_year": academicYear,
+			"status":        currentStatus,
+		},
+		bson.M{
+			"$set": bson.M{
+				"status": newStatus,
+			},
+		},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+
+	return nil
+}

@@ -46,6 +46,56 @@ func (r *AttendanceRepository) Create(
 }
 
 // ========================================
+// UPDATE EXISTING ATTENDANCE
+// ========================================
+
+func (r *AttendanceRepository) Update(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+	attendanceID bson.ObjectID,
+	status string,
+) (*model.Attendance, error) {
+
+	filter := bson.M{
+		"_id":        attendanceID,
+		"college_id": collegeID,
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"attendance": status,
+		},
+	}
+
+	result, err := r.collection.UpdateOne(
+		ctx,
+		filter,
+		update,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if result.MatchedCount == 0 {
+		return nil, mongo.ErrNoDocuments
+	}
+
+	var updatedAttendance model.Attendance
+
+	err = r.collection.FindOne(
+		ctx,
+		filter,
+	).Decode(&updatedAttendance)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &updatedAttendance, nil
+}
+
+// ========================================
 // GET BY STUDENT
 // ========================================
 
@@ -97,6 +147,44 @@ func (r *AttendanceRepository) GetAll(
 	filter := bson.M{
 		"college_id":    collegeID,
 		"academic_year": academicYear,
+	}
+
+	cursor, err := r.collection.Find(
+		ctx,
+		filter,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	defer cursor.Close(ctx)
+
+	var attendanceList []model.Attendance
+
+	if err := cursor.All(
+		ctx,
+		&attendanceList,
+	); err != nil {
+		return nil, err
+	}
+
+	return attendanceList, nil
+}
+
+// ========================================
+// GET ATTENDANCE BY COLLEGE + DATE
+// Used by college dashboard
+// ========================================
+
+func (r *AttendanceRepository) GetByCollegeAndDate(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+	date string,
+) ([]model.Attendance, error) {
+
+	filter := bson.M{
+		"college_id": collegeID,
+		"date":       date,
 	}
 
 	cursor, err := r.collection.Find(
@@ -215,6 +303,84 @@ func (r *AttendanceRepository) GetByStudentAndMonth(
 		&attendanceList,
 	); err != nil {
 		return nil, err
+	}
+
+	return attendanceList, nil
+}
+
+// ========================================
+// GET MONTHLY ATTENDANCE BY CLASSROOM
+// ========================================
+
+func (r *AttendanceRepository) GetByClassroomAndMonth(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+	classroomID string,
+	academicYear string,
+	year int,
+	month int,
+) ([]model.Attendance, error) {
+
+	startDate := fmt.Sprintf(
+		"%04d-%02d-01",
+		year,
+		month,
+	)
+
+	var endYear int
+	var endMonth int
+
+	if month == 12 {
+		endYear = year + 1
+		endMonth = 1
+	} else {
+		endYear = year
+		endMonth = month + 1
+	}
+
+	endDate := fmt.Sprintf(
+		"%04d-%02d-01",
+		endYear,
+		endMonth,
+	)
+
+	filter := bson.M{
+		"college_id":    collegeID,
+		"classroom_id":  classroomID,
+		"academic_year": academicYear,
+		"date": bson.M{
+			"$gte": startDate,
+			"$lt":  endDate,
+		},
+	}
+
+	cursor, err := r.collection.Find(
+		ctx,
+		filter,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to get classroom monthly attendance: %w",
+			err,
+		)
+	}
+
+	defer cursor.Close(ctx)
+
+	attendanceList := make(
+		[]model.Attendance,
+		0,
+	)
+
+	if err := cursor.All(
+		ctx,
+		&attendanceList,
+	); err != nil {
+		return nil, fmt.Errorf(
+			"failed to decode classroom monthly attendance: %w",
+			err,
+		)
 	}
 
 	return attendanceList, nil

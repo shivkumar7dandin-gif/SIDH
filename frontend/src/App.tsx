@@ -1,9 +1,4 @@
-import {
-  BrowserRouter,
-  Navigate,
-  Route,
-  Routes,
-} from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import Login from "./pages/Login";
 import CollegeDashboard from "./pages/CollegeDashboard";
@@ -17,6 +12,9 @@ import AddTeacher from "./pages/AddTeacher";
 import EditTeacher from "./pages/EditTeacher";
 
 import Classrooms from "./pages/Classrooms";
+import Attendance from "./pages/Attendance";
+import Assessments from "./pages/Assessments";
+import Timetable from "./pages/Timetable";
 
 import AdminLayout from "./layouts/AdminLayout";
 
@@ -24,99 +22,91 @@ function App() {
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
 
-  const isCollegeAdmin =
-    Boolean(token) && role === "college_admin";
+  const isCollegeAdmin = Boolean(token) && role === "college_admin";
 
   return (
     <BrowserRouter>
       <Routes>
+        {/* ======================================== */}
         {/* LOGIN */}
+        {/* ======================================== */}
+
         <Route
           path="/login"
           element={
-            isCollegeAdmin ? (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            ) : (
-              <Login />
-            )
+            isCollegeAdmin ? <Navigate to="/dashboard" replace /> : <Login />
           }
         />
 
-        {/* PROTECTED ADMIN ROUTES */}
+        {/* ======================================== */}
+        {/* PROTECTED COLLEGE ADMIN ROUTES */}
+        {/* ======================================== */}
+
         <Route
           element={
-            isCollegeAdmin ? (
-              <AdminLayout />
-            ) : (
-              <Navigate
-                to="/login"
-                replace
-              />
-            )
+            isCollegeAdmin ? <AdminLayout /> : <Navigate to="/login" replace />
           }
         >
           {/* DASHBOARD */}
-          <Route
-            path="/dashboard"
-            element={<CollegeDashboard />}
-          />
 
+          <Route path="/dashboard" element={<CollegeDashboard />} />
+
+          {/* ======================================== */}
           {/* STUDENTS */}
-          <Route
-            path="/students"
-            element={<Students />}
-          />
+          {/* ======================================== */}
 
-          <Route
-            path="/students/add"
-            element={<AddStudent />}
-          />
+          <Route path="/students" element={<Students />} />
 
-          <Route
-            path="/students/:id/edit"
-            element={<EditStudent />}
-          />
+          <Route path="/students/add" element={<AddStudent />} />
 
+          <Route path="/students/:id/edit" element={<EditStudent />} />
+
+          {/* ======================================== */}
           {/* TEACHERS */}
-          <Route
-            path="/teachers"
-            element={<Teachers />}
-          />
+          {/* ======================================== */}
 
-          <Route
-            path="/teachers/add"
-            element={<AddTeacher />}
-          />
+          <Route path="/teachers" element={<Teachers />} />
 
-          <Route
-            path="/teachers/:id/edit"
-            element={<EditTeacher />}
-          />
+          <Route path="/teachers/add" element={<AddTeacher />} />
 
+          <Route path="/teachers/:id/edit" element={<EditTeacher />} />
+
+          {/* ======================================== */}
           {/* CLASSROOMS */}
-          <Route
-            path="/classrooms"
-            element={<Classrooms />}
-          />
+          {/* ======================================== */}
+
+          <Route path="/classrooms" element={<Classrooms />} />
+
+          {/* ======================================== */}
+          {/* ATTENDANCE */}
+          {/* ======================================== */}
+
+          <Route path="/attendance" element={<Attendance />} />
+
+          {/* ======================================== */}
+          {/* ASSESSMENTS */}
+          {/* ======================================== */}
+
+          <Route path="/assessments" element={<Assessments />} />
+
+          {/* ======================================== */}
+          {/* CLASS SCHEDULE / TIMETABLE */}
+          {/* ======================================== */}
+
+          <Route path="/timetable" element={<Timetable />} />
         </Route>
 
+        {/* ======================================== */}
         {/* UNKNOWN ROUTE */}
+        {/* ======================================== */}
+
         <Route
           path="*"
           element={
             isCollegeAdmin ? (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
+              <Navigate to="/dashboard" replace />
             ) : (
-              <Navigate
-                to="/login"
-                replace
-              />
+              <Navigate to="/login" replace />
             )
           }
         />

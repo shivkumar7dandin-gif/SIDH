@@ -175,6 +175,7 @@ func (s *CalendarService) Create(
 		EndDate:        endDate,
 		WeeklyHolidays: weeklyHolidays,
 		Holidays:       holidays,
+		Status:         "active",
 	}
 
 	return s.repo.Create(
@@ -215,6 +216,44 @@ func (s *CalendarService) GetByAcademicYear(
 		collegeID,
 		academicYear,
 	)
+}
+
+func (s *CalendarService) ValidateActiveAcademicYear(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+	academicYear string,
+) error {
+
+	academicYear = strings.TrimSpace(academicYear)
+
+	if academicYear == "" {
+		return errors.New("academic year is required")
+	}
+
+	calendar, err := s.repo.GetByAcademicYear(
+		ctx,
+		collegeID,
+		academicYear,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	switch calendar.Status {
+
+	case "active":
+		return nil
+
+	case "closed":
+		return errors.New("academic year is closed")
+
+	case "archived":
+		return errors.New("academic year is archived")
+
+	default:
+		return errors.New("academic year has invalid status")
+	}
 }
 
 func (s *CalendarService) GetDayStatus(
@@ -461,4 +500,45 @@ func isValidWeekday(day string) bool {
 	}
 
 	return validDays[day]
+}
+
+func (s *CalendarService) CloseAcademicYear(
+	ctx context.Context,
+	collegeID bson.ObjectID,
+	academicYear string,
+) error {
+
+	academicYear = strings.TrimSpace(academicYear)
+
+	if academicYear == "" {
+		return errors.New("academic year is required")
+	}
+
+	calendar, err := s.repo.GetByAcademicYear(
+		ctx,
+		collegeID,
+		academicYear,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	if calendar.Status == "closed" {
+		return errors.New("academic year is already closed")
+	}
+
+	if calendar.Status != "active" {
+		return errors.New(
+			"only active academic year can be closed",
+		)
+	}
+
+	return s.repo.UpdateStatus(
+		ctx,
+		collegeID,
+		academicYear,
+		"active",
+		"closed",
+	)
 }

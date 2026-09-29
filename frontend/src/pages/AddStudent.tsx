@@ -3,26 +3,18 @@ import { useNavigate } from "react-router-dom";
 
 import { createStudent } from "../api/studentApi";
 
-import {
-  getClassrooms,
-  type Classroom,
-} from "../api/classroomApi";
+import { getClassrooms, type Classroom } from "../api/classroomApi";
 
 function AddStudent() {
   const navigate = useNavigate();
 
-  const [classrooms, setClassrooms] =
-    useState<Classroom[]>([]);
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
 
-  const [loading, setLoading] =
-    useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const [error, setError] =
-    useState("");
+  const [error, setError] = useState("");
 
-  // Show / Hide password
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -32,6 +24,13 @@ function AddStudent() {
     classroom_id: "",
     username: "",
     password: "",
+
+    guardian: {
+      name: "",
+      relation: "",
+      phone: "",
+      email: "",
+    },
 
     address: {
       house_no: "",
@@ -52,24 +51,15 @@ function AddStudent() {
       try {
         setError("");
 
-        const data =
-          await getClassrooms();
+        const data = await getClassrooms();
 
-        console.log(
-          "Classrooms response:",
-          data,
-        );
+        console.log("Classrooms response:", data);
 
         setClassrooms(data);
       } catch (err) {
-        console.error(
-          "Failed to load classrooms:",
-          err,
-        );
+        console.error("Failed to load classrooms:", err);
 
-        setError(
-          "Failed to load classrooms",
-        );
+        setError("Failed to load classrooms");
       }
     };
 
@@ -81,15 +71,9 @@ function AddStudent() {
   // ------------------------------------------------
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement |
-      HTMLSelectElement
-    >,
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
-    const {
-      name,
-      value,
-    } = e.target;
+    const { name, value } = e.target;
 
     setForm((previous) => ({
       ...previous,
@@ -98,16 +82,30 @@ function AddStudent() {
   };
 
   // ------------------------------------------------
+  // GUARDIAN CHANGE
+  // ------------------------------------------------
+
+  const handleGuardianChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    const { name, value } = e.target;
+
+    setForm((previous) => ({
+      ...previous,
+
+      guardian: {
+        ...previous.guardian,
+        [name]: value,
+      },
+    }));
+  };
+
+  // ------------------------------------------------
   // ADDRESS CHANGE
   // ------------------------------------------------
 
-  const handleAddressChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const {
-      name,
-      value,
-    } = e.target;
+  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
 
     setForm((previous) => ({
       ...previous,
@@ -123,32 +121,23 @@ function AddStudent() {
   // SORT CLASSROOMS
   // ------------------------------------------------
 
-  const sortedClassrooms =
-    [...classrooms].sort(
-      (a, b) => {
-        const classA =
-          parseInt(a.name) || 0;
+  const sortedClassrooms = [...classrooms].sort((a, b) => {
+    const classA = parseInt(a.name) || 0;
 
-        const classB =
-          parseInt(b.name) || 0;
+    const classB = parseInt(b.name) || 0;
 
-        if (classA !== classB) {
-          return classA - classB;
-        }
+    if (classA !== classB) {
+      return classA - classB;
+    }
 
-        return a.section.localeCompare(
-          b.section,
-        );
-      },
-    );
+    return a.section.localeCompare(b.section);
+  });
 
   // ------------------------------------------------
   // SUBMIT
   // ------------------------------------------------
 
-  const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement>,
-  ) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     setLoading(true);
@@ -156,68 +145,62 @@ function AddStudent() {
 
     try {
       const studentData = {
-        name:
-          form.name.trim(),
+        name: form.name.trim(),
 
-        age:
-          Number(form.age),
+        age: Number(form.age),
 
-        roll_number:
-          Number(
-            form.roll_number,
-          ),
+        roll_number: Number(form.roll_number),
 
-        gender:
-          form.gender,
+        gender: form.gender,
 
-        classroom_id:
-          form.classroom_id,
+        classroom_id: form.classroom_id,
 
-        username:
-          form.username.trim(),
+        username: form.username.trim(),
 
-        password:
-          form.password,
+        password: form.password,
+
+        guardians: [
+          {
+            name: form.guardian.name.trim(),
+
+            relation: form.guardian.relation,
+
+            phone: form.guardian.phone.trim(),
+
+            email: form.guardian.email.trim(),
+
+            primary: true,
+
+            receive_report: true,
+          },
+        ],
 
         address: {
-          house_no:
-            form.address.house_no.trim(),
+          house_no: form.address.house_no.trim(),
 
-          street:
-            form.address.street.trim(),
+          street: form.address.street.trim(),
 
-          village:
-            form.address.village.trim(),
+          village: form.address.village.trim(),
 
-          city:
-            form.address.city.trim(),
+          city: form.address.city.trim(),
 
-          state:
-            form.address.state.trim(),
+          state: form.address.state.trim(),
 
-          pincode:
-            form.address.pincode.trim(),
+          pincode: form.address.pincode.trim(),
         },
       };
 
-      console.log(
-        "Creating student:",
-        studentData,
-      );
+      console.log("Creating student:", studentData);
 
-      await createStudent(
-        studentData,
-      );
+      await createStudent(studentData);
 
       navigate("/students");
     } catch (err: any) {
-      console.error(
-        "Create student error:",
-        err,
-      );
+      console.error("Create student error:", err);
 
       const message =
         err?.response?.data?.error ||
+        err?.message ||
         "Failed to create student";
 
       setError(message);
@@ -228,18 +211,9 @@ function AddStudent() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
+      <h1 className="text-3xl font-bold">Add Student</h1>
 
-      {/* PAGE TITLE */}
-
-      <h1 className="text-3xl font-bold">
-        Add Student
-      </h1>
-
-      <p className="text-gray-600 mt-2">
-        Register a new student.
-      </p>
-
-      {/* ERROR */}
+      <p className="text-gray-600 mt-2">Register a new student.</p>
 
       {error && (
         <div className="mt-5 bg-red-100 text-red-700 p-3 rounded-lg">
@@ -247,24 +221,18 @@ function AddStudent() {
         </div>
       )}
 
-      {/* FORM */}
-
       <form
         onSubmit={handleSubmit}
         autoComplete="off"
         className="bg-white rounded-xl shadow mt-8 p-8 max-w-5xl"
       >
-
         {/* STUDENT DETAILS */}
 
+        <h2 className="text-xl font-semibold mb-5">Student Details</h2>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          {/* STUDENT NAME */}
-
           <div>
-            <label className="block font-medium mb-2">
-              Student Name
-            </label>
+            <label className="block font-medium mb-2">Student Name</label>
 
             <input
               type="text"
@@ -278,12 +246,8 @@ function AddStudent() {
             />
           </div>
 
-          {/* AGE */}
-
           <div>
-            <label className="block font-medium mb-2">
-              Age
-            </label>
+            <label className="block font-medium mb-2">Age</label>
 
             <input
               type="number"
@@ -297,12 +261,8 @@ function AddStudent() {
             />
           </div>
 
-          {/* ROLL NUMBER */}
-
           <div>
-            <label className="block font-medium mb-2">
-              Roll Number
-            </label>
+            <label className="block font-medium mb-2">Roll Number</label>
 
             <input
               type="number"
@@ -316,12 +276,8 @@ function AddStudent() {
             />
           </div>
 
-          {/* GENDER */}
-
           <div>
-            <label className="block font-medium mb-2">
-              Gender
-            </label>
+            <label className="block font-medium mb-2">Gender</label>
 
             <select
               name="gender"
@@ -330,30 +286,18 @@ function AddStudent() {
               required
               className="w-full border rounded-lg p-3"
             >
-              <option value="">
-                Select gender
-              </option>
+              <option value="">Select gender</option>
 
-              <option value="Male">
-                Male
-              </option>
+              <option value="Male">Male</option>
 
-              <option value="Female">
-                Female
-              </option>
+              <option value="Female">Female</option>
 
-              <option value="Other">
-                Other
-              </option>
+              <option value="Other">Other</option>
             </select>
           </div>
 
-          {/* CLASSROOM */}
-
           <div>
-            <label className="block font-medium mb-2">
-              Classroom
-            </label>
+            <label className="block font-medium mb-2">Classroom</label>
 
             <select
               name="classroom_id"
@@ -362,32 +306,19 @@ function AddStudent() {
               required
               className="w-full border rounded-lg p-3"
             >
-              <option value="">
-                Select classroom
-              </option>
+              <option value="">Select classroom</option>
 
-              {sortedClassrooms.map(
-                (classroom) => (
-                  <option
-                    key={classroom.id}
-                    value={classroom.id}
-                  >
-                    {classroom.name}
-                    {classroom.section
-                      ? ` - Section ${classroom.section}`
-                      : ""}
-                  </option>
-                ),
-              )}
+              {sortedClassrooms.map((classroom) => (
+                <option key={classroom.id} value={classroom.id}>
+                  {classroom.name}
+                  {classroom.section ? ` - Section ${classroom.section}` : ""}
+                </option>
+              ))}
             </select>
           </div>
 
-          {/* USERNAME */}
-
           <div>
-            <label className="block font-medium mb-2">
-              Username
-            </label>
+            <label className="block font-medium mb-2">Username</label>
 
             <input
               type="text"
@@ -401,21 +332,12 @@ function AddStudent() {
             />
           </div>
 
-          {/* PASSWORD */}
-
           <div>
-            <label className="block font-medium mb-2">
-              Password
-            </label>
+            <label className="block font-medium mb-2">Password</label>
 
             <div className="flex gap-2">
-
               <input
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
+                type={showPassword ? "text" : "password"}
                 name="password"
                 value={form.password}
                 onChange={handleChange}
@@ -428,38 +350,94 @@ function AddStudent() {
 
               <button
                 type="button"
-                onClick={() =>
-                  setShowPassword(
-                    (previous) =>
-                      !previous,
-                  )
-                }
+                onClick={() => setShowPassword((previous) => !previous)}
                 className="border px-4 rounded-lg hover:bg-gray-100"
               >
-                {showPassword
-                  ? "Hide"
-                  : "Show"}
+                {showPassword ? "Hide" : "Show"}
               </button>
-
             </div>
           </div>
+        </div>
 
+        {/* GUARDIAN DETAILS */}
+
+        <h2 className="text-xl font-semibold mt-8 mb-5">Guardian Details</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block font-medium mb-2">Guardian Name</label>
+
+            <input
+              type="text"
+              name="name"
+              value={form.guardian.name}
+              onChange={handleGuardianChange}
+              placeholder="Enter guardian name"
+              required
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium mb-2">Relation</label>
+
+            <select
+              name="relation"
+              value={form.guardian.relation}
+              onChange={handleGuardianChange}
+              required
+              className="w-full border rounded-lg p-3"
+            >
+              <option value="">Select relation</option>
+
+              <option value="father">Father</option>
+
+              <option value="mother">Mother</option>
+
+              <option value="guardian">Guardian</option>
+
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-medium mb-2">Phone Number</label>
+
+            <input
+              type="tel"
+              name="phone"
+              value={form.guardian.phone}
+              onChange={handleGuardianChange}
+              placeholder="Enter guardian phone number"
+              required
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium mb-2">Email (Optional)</label>
+
+            <input
+              type="email"
+              name="email"
+              value={form.guardian.email}
+              onChange={handleGuardianChange}
+              placeholder="Enter guardian email"
+              autoComplete="off"
+              className="w-full border rounded-lg p-3"
+            />
+          </div>
         </div>
 
         {/* ADDRESS */}
 
-        <h2 className="text-xl font-semibold mt-8 mb-5">
-          Address
-        </h2>
+        <h2 className="text-xl font-semibold mt-8 mb-5">Address</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          {/* HOUSE NO */}
-
           <div>
-            <label className="block font-medium mb-2">
-              House No
-            </label>
+            <label className="block font-medium mb-2">House No</label>
 
             <input
               type="text"
@@ -471,12 +449,8 @@ function AddStudent() {
             />
           </div>
 
-          {/* STREET */}
-
           <div>
-            <label className="block font-medium mb-2">
-              Street
-            </label>
+            <label className="block font-medium mb-2">Street</label>
 
             <input
               type="text"
@@ -488,12 +462,8 @@ function AddStudent() {
             />
           </div>
 
-          {/* VILLAGE */}
-
           <div>
-            <label className="block font-medium mb-2">
-              Village
-            </label>
+            <label className="block font-medium mb-2">Village</label>
 
             <input
               type="text"
@@ -505,12 +475,8 @@ function AddStudent() {
             />
           </div>
 
-          {/* CITY */}
-
           <div>
-            <label className="block font-medium mb-2">
-              City
-            </label>
+            <label className="block font-medium mb-2">City</label>
 
             <input
               type="text"
@@ -522,12 +488,8 @@ function AddStudent() {
             />
           </div>
 
-          {/* STATE */}
-
           <div>
-            <label className="block font-medium mb-2">
-              State
-            </label>
+            <label className="block font-medium mb-2">State</label>
 
             <input
               type="text"
@@ -539,12 +501,8 @@ function AddStudent() {
             />
           </div>
 
-          {/* PINCODE */}
-
           <div>
-            <label className="block font-medium mb-2">
-              Pincode
-            </label>
+            <label className="block font-medium mb-2">Pincode</label>
 
             <input
               type="text"
@@ -555,37 +513,28 @@ function AddStudent() {
               className="w-full border rounded-lg p-3"
             />
           </div>
-
         </div>
 
         {/* BUTTONS */}
 
         <div className="flex gap-4 mt-8">
-
           <button
             type="submit"
             disabled={loading}
             className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-6 py-3 rounded-lg"
           >
-            {loading
-              ? "Creating..."
-              : "Create Student"}
+            {loading ? "Creating..." : "Create Student"}
           </button>
 
           <button
             type="button"
-            onClick={() =>
-              navigate("/students")
-            }
+            onClick={() => navigate("/students")}
             className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg"
           >
             Cancel
           </button>
-
         </div>
-
       </form>
-
     </div>
   );
 }
