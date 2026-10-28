@@ -244,12 +244,17 @@ func (r *TeacherRepository) UpdateByIDAndCollegeID(
 
 	update := bson.M{
 		"$set": bson.M{
-			"name":    teacher.Name,
-			"age":     teacher.Age,
-			"gender":  teacher.Gender,
-			"email":   teacher.Email,
-			"phone":   teacher.Phone,
-			"subject": teacher.Subject,
+			"employee_id":      teacher.EmployeeID,
+			"name":             teacher.Name,
+			"age":              teacher.Age,
+			"gender":           teacher.Gender,
+			"email":            teacher.Email,
+			"phone":            teacher.Phone,
+			"subject":          teacher.Subject,
+			"qualification":    teacher.Qualification,
+			"experience_years": teacher.ExperienceYears,
+			"joining_date":     teacher.JoiningDate,
+			"address":          teacher.Address,
 		},
 	}
 
@@ -327,4 +332,27 @@ func (r *TeacherRepository) UpdateStatusByIDAndCollegeID(
 	}
 
 	return nil
+}
+
+func (r *TeacherRepository) GetByEmployeeIDAndCollegeID(
+	ctx context.Context,
+	employeeID string,
+	collegeID bson.ObjectID,
+) (*model.Teacher, error) {
+
+	var teacher model.Teacher
+
+	err := r.collection.FindOne(
+		ctx,
+		bson.M{
+			"employee_id": employeeID,
+			"college_id":  collegeID,
+		},
+	).Decode(&teacher)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &teacher, nil
 }

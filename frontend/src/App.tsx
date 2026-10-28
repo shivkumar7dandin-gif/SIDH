@@ -14,9 +14,12 @@ import EditTeacher from "./pages/EditTeacher";
 import Classrooms from "./pages/Classrooms";
 import Attendance from "./pages/Attendance";
 import Assessments from "./pages/Assessments";
+import Subjects from "./pages/subjects/Subjects";
 import Timetable from "./pages/Timetable";
 
 import AdminLayout from "./layouts/AdminLayout";
+
+import TeacherProfile from "./pages/TeacherProfile";
 
 function App() {
   const token = localStorage.getItem("token");
@@ -68,8 +71,11 @@ function App() {
           <Route path="/teachers" element={<Teachers />} />
 
           <Route path="/teachers/add" element={<AddTeacher />} />
+          <Route path="/teachers/:id" element={<TeacherProfile />} />
 
           <Route path="/teachers/:id/edit" element={<EditTeacher />} />
+
+          <Route path="/subjects" element={<Subjects />} />
 
           {/* ======================================== */}
           {/* CLASSROOMS */}
