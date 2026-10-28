@@ -42,9 +42,17 @@ import (
 	studentRepository "github.com/shivkumar7dandin-gif/students-api/internal/student/repository"
 	studentService "github.com/shivkumar7dandin-gif/students-api/internal/student/service"
 
+	subjectHandler "github.com/shivkumar7dandin-gif/students-api/internal/subject/handler"
+	subjectRepository "github.com/shivkumar7dandin-gif/students-api/internal/subject/repository"
+	subjectService "github.com/shivkumar7dandin-gif/students-api/internal/subject/service"
+
 	teacherHandler "github.com/shivkumar7dandin-gif/students-api/internal/teacher/handler"
 	teacherRepository "github.com/shivkumar7dandin-gif/students-api/internal/teacher/repository"
 	teacherService "github.com/shivkumar7dandin-gif/students-api/internal/teacher/service"
+
+	teacherAssignmentHandler "github.com/shivkumar7dandin-gif/students-api/internal/teacherassignment/handler"
+	teacherAssignmentRepository "github.com/shivkumar7dandin-gif/students-api/internal/teacherassignment/repository"
+	teacherAssignmentService "github.com/shivkumar7dandin-gif/students-api/internal/teacherassignment/service"
 
 	timetableHandler "github.com/shivkumar7dandin-gif/students-api/internal/timetable/handler"
 	timetableRepository "github.com/shivkumar7dandin-gif/students-api/internal/timetable/repository"
@@ -91,6 +99,9 @@ func main() {
 	collegeRepo :=
 		collegeRepository.NewCollegeRepository(db)
 
+	teacherAssignmentRepo :=
+		teacherAssignmentRepository.NewTeacherAssignmentRepository(db)
+
 	teacherRepo :=
 		teacherRepository.NewTeacherRepository(db)
 
@@ -102,6 +113,23 @@ func main() {
 
 	attendanceRepo :=
 		attendanceRepository.NewAttendanceRepository(db)
+
+		// =========================
+	// SUBJECT
+	// =========================
+
+	subjectRepo :=
+		subjectRepository.NewSubjectRepository(db)
+
+	subjectSvc :=
+		subjectService.NewSubjectService(
+			subjectRepo,
+		)
+
+	subjectH :=
+		subjectHandler.NewSubjectHandler(
+			subjectSvc,
+		)
 
 	// =========================
 	// CALENDAR REPOSITORY/SERVICE
@@ -182,6 +210,22 @@ func main() {
 	classroomH := classroomHandler.NewClassroomHandler(
 		classroomSvc,
 	)
+
+	// =========================
+	// TEACHER CLASS ASSIGNMENT
+	// =========================
+
+	teacherAssignmentSvc :=
+		teacherAssignmentService.NewTeacherAssignmentService(
+			teacherAssignmentRepo,
+			teacherRepo,
+			classroomRepo,
+		)
+
+	teacherAssignmentH :=
+		teacherAssignmentHandler.NewTeacherAssignmentHandler(
+			teacherAssignmentSvc,
+		)
 
 	// =========================
 	// STUDENT
@@ -470,6 +514,71 @@ func main() {
 		"/teachers/me",
 		teacherH.GetMe,
 	)
+
+	// =========================
+	// TEACHER ASSIGNMENT ROUTES
+	// =========================
+
+	// All authenticated users can view
+	// a teacher's class assignments.
+	teacherAssignmentsRead :=
+		allUsers.Group("/teachers")
+
+	{
+		teacherAssignmentsRead.GET(
+			"/:id/assignments",
+			teacherAssignmentH.GetByTeacher,
+		)
+	}
+
+	// Only college admin can create
+	// and remove teacher assignments.
+	teacherAssignmentsAdmin :=
+		adminOnly.Group("/teacher-assignments")
+
+	{
+		teacherAssignmentsAdmin.POST(
+			"",
+			teacherAssignmentH.Create,
+		)
+
+		teacherAssignmentsAdmin.DELETE(
+			"/:id",
+			teacherAssignmentH.Delete,
+		)
+	}
+
+	// =========================
+	// SUBJECT ROUTES
+	// =========================
+
+	// All authenticated users can view subjects.
+	subjectsRead := allUsers.Group("/subjects")
+	{
+		subjectsRead.GET(
+			"",
+			subjectH.GetAll,
+		)
+
+		subjectsRead.GET(
+			"/:id",
+			subjectH.GetByID,
+		)
+	}
+
+	// Only college admin can create and delete subjects.
+	subjectsAdmin := adminOnly.Group("/subjects")
+	{
+		subjectsAdmin.POST(
+			"",
+			subjectH.Create,
+		)
+
+		subjectsAdmin.DELETE(
+			"/:id",
+			subjectH.Delete,
+		)
+	}
 
 	// =========================
 	// TIMETABLE ROUTES

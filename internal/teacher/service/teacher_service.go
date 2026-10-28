@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	teacherModel "github.com/shivkumar7dandin-gif/students-api/internal/teacher/model"
 	teacherRepository "github.com/shivkumar7dandin-gif/students-api/internal/teacher/repository"
@@ -12,6 +13,7 @@ import (
 	userRepository "github.com/shivkumar7dandin-gif/students-api/internal/user/repository"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -35,15 +37,72 @@ func (s *TeacherService) Create(
 	req teacherModel.CreateTeacherRequest,
 ) (*teacherModel.Teacher, error) {
 
+	req.EmployeeID = strings.TrimSpace(req.EmployeeID)
 	req.Name = strings.TrimSpace(req.Name)
 	req.Gender = strings.TrimSpace(req.Gender)
 	req.Email = strings.TrimSpace(req.Email)
 	req.Phone = strings.TrimSpace(req.Phone)
 	req.Subject = strings.TrimSpace(req.Subject)
+	req.Qualification = strings.TrimSpace(req.Qualification)
+	req.JoiningDate = strings.TrimSpace(req.JoiningDate)
 	req.Username = strings.TrimSpace(req.Username)
+
+	req.Address.HouseNo = strings.TrimSpace(req.Address.HouseNo)
+	req.Address.Street = strings.TrimSpace(req.Address.Street)
+	req.Address.Village = strings.TrimSpace(req.Address.Village)
+	req.Address.City = strings.TrimSpace(req.Address.City)
+	req.Address.State = strings.TrimSpace(req.Address.State)
+	req.Address.Pincode = strings.TrimSpace(req.Address.Pincode)
 
 	if req.Name == "" {
 		return nil, errors.New("teacher name is required")
+	}
+
+	if req.EmployeeID == "" {
+		return nil, errors.New("employee id is required")
+	}
+
+	if req.Qualification == "" {
+		return nil, errors.New("teacher qualification is required")
+	}
+
+	if req.ExperienceYears < 0 {
+		return nil, errors.New(
+			"experience years cannot be negative",
+		)
+	}
+
+	if req.JoiningDate == "" {
+		return nil, errors.New(
+			"joining date is required",
+		)
+	}
+
+	if _, err := time.Parse(
+		"2006-01-02",
+		req.JoiningDate,
+	); err != nil {
+		return nil, errors.New(
+			"joining date must be in YYYY-MM-DD format",
+		)
+	}
+
+	if req.Address.City == "" {
+		return nil, errors.New(
+			"teacher address city is required",
+		)
+	}
+
+	if req.Address.State == "" {
+		return nil, errors.New(
+			"teacher address state is required",
+		)
+	}
+
+	if req.Address.Pincode == "" {
+		return nil, errors.New(
+			"teacher address pincode is required",
+		)
 	}
 
 	if req.Age <= 0 {
@@ -97,6 +156,22 @@ func (s *TeacherService) Create(
 		)
 	}
 
+	existingTeacher, err := s.teacherRepo.GetByEmployeeIDAndCollegeID(
+		ctx,
+		req.EmployeeID,
+		collegeID,
+	)
+
+	if err == nil && existingTeacher != nil {
+		return nil, errors.New(
+			"employee id already exists in this school",
+		)
+	}
+
+	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+		return nil, err
+	}
+
 	exists, err := s.userRepo.UsernameExists(
 		ctx,
 		req.Username,
@@ -112,15 +187,20 @@ func (s *TeacherService) Create(
 	}
 
 	teacher := teacherModel.Teacher{
-		CollegeID: collegeID,
-		Name:      req.Name,
-		Age:       req.Age,
-		Gender:    req.Gender,
-		Email:     req.Email,
-		Phone:     req.Phone,
-		Subject:   req.Subject,
-		Username:  req.Username,
-		Status:    "active",
+		CollegeID:       collegeID,
+		EmployeeID:      req.EmployeeID,
+		Name:            req.Name,
+		Age:             req.Age,
+		Gender:          req.Gender,
+		Email:           req.Email,
+		Phone:           req.Phone,
+		Subject:         req.Subject,
+		Qualification:   req.Qualification,
+		ExperienceYears: req.ExperienceYears,
+		JoiningDate:     req.JoiningDate,
+		Address:         req.Address,
+		Username:        req.Username,
+		Status:          "active",
 	}
 
 	createdTeacher, err :=
